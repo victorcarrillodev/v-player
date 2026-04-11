@@ -49,14 +49,19 @@ class PlayerScreen extends StatelessWidget {
               SafeArea(
                 child: Column(
                   children: [
-                    // Top Bar (invisible or back button)
+                    // Top Bar
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 32),
                             onPressed: () => Navigator.pop(context),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.queue_music_rounded, color: Colors.white, size: 28),
+                            onPressed: () => _showQueueModal(context, provider),
                           ),
                         ],
                       ),
@@ -118,7 +123,21 @@ class PlayerScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Row(
                         children: [
-                          const Icon(Icons.volume_up_outlined, color: Color(0xFF6E7287), size: 24),
+                          IconButton(
+                            icon: Icon(
+                              song != null && provider.isFavorite(song.id) 
+                                ? Icons.favorite_rounded 
+                                : Icons.favorite_border_rounded,
+                              color: song != null && provider.isFavorite(song.id)
+                                ? const Color(0xFFFF5722)
+                                : const Color(0xFF6E7287),
+                            ),
+                            iconSize: 28,
+                            padding: EdgeInsets.zero,
+                            onPressed: () {
+                              if (song != null) provider.toggleFavorite(song.id);
+                            },
+                          ),
                           const Spacer(),
                           GestureDetector(
                             onTap: provider.toggleRepeat,
@@ -184,6 +203,53 @@ class PlayerScreen extends StatelessWidget {
 
                     SizedBox(height: MediaQuery.of(context).padding.bottom + 20),
                   ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showQueueModal(BuildContext context, MusicProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E2130),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Lista de reproducción actual',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const Divider(color: Colors.white24, height: 1),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: provider.currentQueue.length,
+                  itemBuilder: (context, index) {
+                    final s = provider.currentQueue[index];
+                    final isPlaying = provider.currentSong?.id == s.id;
+                    return ListTile(
+                      leading: isPlaying 
+                          ? const Icon(Icons.volume_up_rounded, color: Color(0xFFFF5722))
+                          : Padding(
+                              padding: const EdgeInsets.only(left: 8.0, top: 4),
+                              child: Text('${index + 1}', style: const TextStyle(color: Colors.white54, fontSize: 16)),
+                            ),
+                      title: Text(s.title, style: TextStyle(color: isPlaying ? const Color(0xFFFF5722) : Colors.white, fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal)),
+                      subtitle: Text(s.artist, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                      onTap: () {
+                        provider.playSong(s, index, queueContext: provider.currentQueue);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
                 ),
               ),
             ],

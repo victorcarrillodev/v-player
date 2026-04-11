@@ -179,7 +179,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
                 // Tab Specific Content for other tabs
-                if (_selectedIndex != 0)
+                if (_selectedIndex == 4)
+                  SliverFillRemaining(
+                    hasScrollBody: true,
+                    child: _buildPlaylistsTab(context, provider),
+                  )
+                else if (_selectedIndex != 0)
                    SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -303,6 +308,103 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaylistsTab(BuildContext context, MusicProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Tus Playlists',
+                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_box_rounded, color: AppTheme.primary, size: 32),
+                onPressed: () => _showCreatePlaylistDialog(context, provider),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: provider.playlists.length,
+            itemBuilder: (context, index) {
+              final playlist = provider.playlists[index];
+              return ListTile(
+                leading: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: playlist.id == 'favorites' ? const Color(0xFFFF5722).withOpacity(0.2) : AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    playlist.id == 'favorites' ? Icons.favorite_rounded : Icons.queue_music_rounded,
+                    color: playlist.id == 'favorites' ? Colors.redAccent : Colors.white70,
+                  ),
+                ),
+                title: Text(playlist.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                subtitle: Text('${playlist.songIds.length} canciones', style: const TextStyle(color: Colors.white54)),
+                onTap: () {
+                  if (playlist.songIds.isNotEmpty) {
+                    provider.playPlaylist(playlist);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('La playlist está vacía')),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCreatePlaylistDialog(BuildContext context, MusicProvider provider) {
+    String folderName = '';
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.surface,
+          title: const Text('Nueva Playlist', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Nombre de la playlist',
+              hintStyle: TextStyle(color: Colors.white54),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primary)),
+            ),
+            onChanged: (val) => folderName = val,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+              onPressed: () {
+                if (folderName.trim().isNotEmpty) {
+                  provider.createPlaylist(folderName.trim());
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Crear', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         );
       },
     );
