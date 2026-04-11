@@ -235,6 +235,17 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Plays a shuffled list of songs starting from index 0.
+  Future<void> playShuffledQueue(List<AppSong> shuffled) async {
+    if (shuffled.isEmpty) return;
+    _isShuffling = true;
+    _shuffledIndices = List.generate(shuffled.length, (i) => i);
+    // Temporarily replace _songs with the shuffled list so next/prev work
+    _songs = shuffled;
+    notifyListeners();
+    await playSong(shuffled[0], 0);
+  }
+
   void toggleShuffle() {
     _isShuffling = !_isShuffling;
     if (_isShuffling) {

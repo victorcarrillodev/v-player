@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/song_model.dart';
@@ -55,7 +56,7 @@ class ActionGrid extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 3.2,
+        childAspectRatio: 6,
         children: const [
           _ActionButton(label: 'Aleatorio', icon: Icons.shuffle_rounded),
           _ActionButton(label: 'Historial', icon: Icons.history_rounded),
@@ -171,7 +172,7 @@ class HorizontalArtists extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading || songs.isEmpty) {
       return SizedBox(
-        height: 140,
+        height: 155,
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
@@ -194,7 +195,7 @@ class HorizontalArtists extends StatelessWidget {
     final artists = songs.map((s) => s.artist).toSet().toList();
 
     return SizedBox(
-      height: 140,
+      height: 155,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -217,7 +218,7 @@ class HorizontalArtists extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   artist,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -231,165 +232,238 @@ class HorizontalArtists extends StatelessWidget {
   }
 }
 
-class MixedSuggestions extends StatelessWidget {
+class _MosaicCell {
+  final int col;
+  final int row;
+  final int w;
+  final int h;
+  final bool isMix;
+  const _MosaicCell(this.col, this.row, this.w, this.h, {this.isMix = false});
+}
+
+class MixedSuggestions extends StatefulWidget {
   final List<AppSong> songs;
   final bool isLoading;
   const MixedSuggestions({super.key, required this.songs, this.isLoading = false});
 
   @override
+  State<MixedSuggestions> createState() => _MixedSuggestionsState();
+}
+
+class _MixedSuggestionsState extends State<MixedSuggestions> {
+  List<AppSong> _randomSongs = [];
+
+  static const List<_MosaicCell> _cells = [
+    // Block 1
+    _MosaicCell(0, 0, 2, 2, isMix: true),
+    _MosaicCell(2, 0, 1, 1),
+    _MosaicCell(3, 0, 1, 1),
+    _MosaicCell(4, 0, 1, 1),
+    _MosaicCell(2, 1, 1, 1),
+    _MosaicCell(3, 1, 2, 2),
+    _MosaicCell(0, 2, 1, 1),
+    _MosaicCell(1, 2, 1, 1),
+    _MosaicCell(2, 2, 1, 1),
+    // Block 2
+    _MosaicCell(5, 0, 1, 1),
+    _MosaicCell(6, 0, 2, 2),
+    _MosaicCell(8, 0, 1, 1),
+    _MosaicCell(9, 0, 1, 1),
+    _MosaicCell(5, 1, 1, 1),
+    _MosaicCell(8, 1, 2, 2),
+    _MosaicCell(5, 2, 1, 1),
+    _MosaicCell(6, 2, 1, 1),
+    _MosaicCell(7, 2, 1, 1),
+    // Block 3
+    _MosaicCell(10, 0, 2, 2),
+    _MosaicCell(12, 0, 1, 1),
+    _MosaicCell(13, 0, 1, 1),
+    _MosaicCell(14, 0, 1, 1),
+    _MosaicCell(12, 1, 2, 2),
+    _MosaicCell(14, 1, 1, 1),
+    _MosaicCell(10, 2, 1, 1),
+    _MosaicCell(11, 2, 1, 1),
+    _MosaicCell(14, 2, 1, 1),
+  ];
+
+  @override
+  void didUpdateWidget(MixedSuggestions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.songs != widget.songs) {
+      _shuffle();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _shuffle();
+  }
+
+  void _shuffle() {
+    final list = List<AppSong>.from(widget.songs);
+    list.shuffle(Random());
+    setState(() {
+      _randomSongs = list;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     const double spacing = 8.0;
-    
-    return Padding(
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double viewportWidth = screenWidth - 32;
+    final double cw = (viewportWidth - 4 * spacing) / 5;
+    final double totalHeight = 3 * cw + 2 * spacing;
+    final double totalScrollWidth = 15 * cw + 14 * spacing;
+
+    if (widget.isLoading || widget.songs.isEmpty) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        physics: const BouncingScrollPhysics(),
+        child: SizedBox(
+          height: totalHeight,
+          width: totalScrollWidth,
+          child: Stack(
+            children: _buildSkeletons(cw, spacing),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final double totalWidth = constraints.maxWidth;
-          final double cw = (totalWidth - 4 * spacing) / 5; // Cell width for 5 columns
-          final double totalHeight = 3 * cw + 2 * spacing; // Total height for 3 rows
+      physics: const BouncingScrollPhysics(),
+      child: SizedBox(
+        height: totalHeight,
+        width: totalScrollWidth,
+        child: Stack(
+          children: _buildItems(context, cw, spacing),
+        ),
+      ),
+    );
+  }
 
-          if (isLoading || songs.isEmpty) {
-            return SizedBox(
-              height: totalHeight,
-              width: totalWidth,
-              child: Stack(
-                children: [
-                   Positioned(
-                    left: 0,
-                    top: 0,
-                    width: 2 * cw + spacing,
-                    height: 2 * cw + spacing,
-                    child: const VMusicSkeleton(width: 200, height: 200, borderRadius: 12),
-                  ),
-                  _buildSkeletonItem(2 * cw + 2 * spacing, 0, cw),
-                  _buildSkeletonItem(3 * cw + 3 * spacing, 0, cw),
-                  _buildSkeletonItem(4 * cw + 4 * spacing, 0, cw),
-                  _buildSkeletonItem(2 * cw + 2 * spacing, cw + spacing, cw),
-                  Positioned(
-                    left: 3 * cw + 3 * spacing,
-                    top: cw + spacing,
-                    width: 2 * cw + spacing,
-                    height: 2 * cw + spacing,
-                    child: const VMusicSkeleton(width: 200, height: 200, borderRadius: 12),
-                  ),
-                  _buildSkeletonItem(0, 2 * cw + 2 * spacing, cw),
-                  _buildSkeletonItem(cw + spacing, 2 * cw + 2 * spacing, cw),
-                  _buildSkeletonItem(2 * cw + 2 * spacing, 2 * cw + 2 * spacing, cw),
-                ],
+  List<Widget> _buildSkeletons(double cw, double spacing) {
+    List<Widget> children = [];
+    for (final cell in _cells) {
+      double left = cell.col * (cw + spacing);
+      double top = cell.row * (cw + spacing);
+      double width = cell.w * cw + (cell.w - 1) * spacing;
+      double height = cell.h * cw + (cell.h - 1) * spacing;
+
+      if (cell.isMix) {
+        children.add(
+          Positioned(
+            left: left, top: top, width: width, height: height,
+            child: const VMusicSkeleton(width: 200, height: 200, borderRadius: 12),
+          ),
+        );
+      } else {
+        children.add(
+          Positioned(
+            left: left, top: top, width: width, height: height,
+            child: VMusicSkeleton(width: width, height: height, borderRadius: 8),
+          ),
+        );
+      }
+    }
+    return children;
+  }
+
+  List<Widget> _buildItems(BuildContext context, double cw, double spacing) {
+    List<Widget> children = [];
+    int songIdx = 0;
+    for (final cell in _cells) {
+      double left = cell.col * (cw + spacing);
+      double top = cell.row * (cw + spacing);
+      double width = cell.w * cw + (cell.w - 1) * spacing;
+      double height = cell.h * cw + (cell.h - 1) * spacing;
+
+      if (cell.isMix) {
+        children.add(
+          Positioned(
+            left: left, top: top, width: width, height: height,
+            child: _buildBigOrangeCard(context),
+          ),
+        );
+      } else {
+        if (songIdx < _randomSongs.length) {
+          final song = _randomSongs[songIdx];
+          children.add(
+            Positioned(
+              left: left, top: top, width: width, height: height,
+              child: GestureDetector(
+                onTap: () => _playAndNavigate(context, song),
+                child: ArtworkWidget(song: song, size: width, borderRadius: cell.w > 1 ? 12 : 8),
               ),
-            );
-          }
-
-          return SizedBox(
-            height: totalHeight,
-            width: totalWidth,
-            child: Stack(
-              children: [
-                // Mix Card (R0, C0, spans 2x2)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  width: 2 * cw + spacing,
-                  height: 2 * cw + spacing,
-                  child: _buildBigOrangeCard(),
-                ),
-
-                // C1 (R0, C2)
-                _buildGridItem(context, songs, 0, 2 * cw + 2 * spacing, 0, cw),
-                // C2 (R0, C3)
-                _buildGridItem(context, songs, 1, 3 * cw + 3 * spacing, 0, cw),
-                // C3 (R0, C4)
-                _buildGridItem(context, songs, 2, 4 * cw + 4 * spacing, 0, cw),
-
-                // C4 (R1, C2)
-                _buildGridItem(context, songs, 3, 2 * cw + 2 * spacing, cw + spacing, cw),
-
-                // Thug Card (R1, C3, spans 2x2)
-                Positioned(
-                  left: 3 * cw + 3 * spacing,
-                  top: cw + spacing,
-                  width: 2 * cw + spacing,
-                  height: 2 * cw + spacing,
-                  child: _buildTallCard(context, songs, 7),
-                ),
-
-                // C5 (R2, C0)
-                _buildGridItem(context, songs, 4, 0, 2 * cw + 2 * spacing, cw),
-                // C6 (R2, C1)
-                _buildGridItem(context, songs, 5, cw + spacing, 2 * cw + 2 * spacing, cw),
-                // C7 (R2, C2)
-                _buildGridItem(context, songs, 6, 2 * cw + 2 * spacing, 2 * cw + 2 * spacing, cw),
-              ],
             ),
           );
+          songIdx++;
+        }
+      }
+    }
+    return children;
+  }
+
+  Widget _buildBigOrangeCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _playShuffledQueue(context),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFF5722), Color(0xFFFF7043)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shuffle_rounded, color: Colors.white, size: 32),
+            SizedBox(height: 8),
+            Text(
+              'Mix de\nMúsica',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _playShuffledQueue(BuildContext context) {
+    if (_randomSongs.isEmpty) return;
+    final provider = context.read<MusicProvider>();
+    final shuffled = List<AppSong>.from(widget.songs)..shuffle(Random());
+    provider.playShuffledQueue(shuffled);
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const PlayerScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeOutQuart;
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          return SlideTransition(position: animation.drive(tween), child: child);
         },
       ),
     );
   }
 
-  Widget _buildSkeletonItem(double left, double top, double size) {
-    return Positioned(
-      left: left,
-      top: top,
-      width: size,
-      height: size,
-      child: VMusicSkeleton(width: size, height: size, borderRadius: 8),
-    );
-  }
-
-  Widget _buildGridItem(BuildContext context, List<AppSong> songs, int songIndex, double left, double top, double size) {
-    if (songIndex >= songs.length) return const SizedBox();
-    return Positioned(
-      left: left,
-      top: top,
-      width: size,
-      height: size,
-      child: GestureDetector(
-        onTap: () => _playAndNavigate(context, songs[songIndex], songIndex),
-        child: ArtworkWidget(song: songs[songIndex], size: size, borderRadius: 8),
-      ),
-    );
-  }
-
-  Widget _buildBigOrangeCard() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFF5722), Color(0xFFFF7043)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Center(
-        child: Text(
-          'Mix de\nMúsica',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTallCard(BuildContext context, List<AppSong> songs, int index) {
-    if (index >= songs.length) return Container(decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)));
-    return GestureDetector(
-      onTap: () => _playAndNavigate(context, songs[index], index),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: ArtworkWidget(song: songs[index], size: 200, borderRadius: 0),
-      ),
-    );
-  }
-
-  void _playAndNavigate(BuildContext context, AppSong song, int index) {
+  void _playAndNavigate(BuildContext context, AppSong song) {
+    final int originalIndex = widget.songs.indexOf(song);
     final provider = context.read<MusicProvider>();
-    provider.playSong(song, index);
-    
+    provider.playSong(song, originalIndex != -1 ? originalIndex : 0);
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -415,7 +489,7 @@ class HorizontalAlbums extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading || songs.isEmpty) {
       return SizedBox(
-        height: 180,
+        height: 195,
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
@@ -439,7 +513,7 @@ class HorizontalAlbums extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 180,
+      height: 195,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -461,7 +535,7 @@ class HorizontalAlbums extends StatelessWidget {
                   song.title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
@@ -469,7 +543,7 @@ class HorizontalAlbums extends StatelessWidget {
                 ),
                 Text(
                   song.artist,
-                  style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  style: const TextStyle(color: Colors.white60, fontSize: 13),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -510,84 +584,100 @@ class PlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading || songs.isEmpty) {
-      return Container(
-        height: 140,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E26),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: Container(color: Colors.white.withOpacity(0.05)),
-            ),
-            Expanded(
-              flex: 1,
-              child: GridView.count(
-                padding: const EdgeInsets.all(4),
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: List.generate(4, (index) => const Padding(
-                  padding: EdgeInsets.all(2),
-                  child: VMusicSkeleton(width: 70, height: 70, borderRadius: 4),
-                )),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
       height: 140,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E26),
         borderRadius: BorderRadius.circular(16),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: [
-          Expanded(
-            flex: 1,
-            child: Container(
-              color: AppTheme.primary,
-              child: Center(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final int count = isLoading || songs.isEmpty ? 4 : (songs.length > 4 ? 4 : songs.length);
+          List<Widget> children = [];
+          
+          final double orangeWidth = totalWidth * 0.42;
+          final double imgSize = 140.0;
+          
+          final double leftmostLeft = orangeWidth - 25.0; // Overlap under the orange block
+          final double rightmostRight = -20.0; // Slight bleed on the right
+          final double leftmostRight = totalWidth - leftmostLeft - imgSize;
+          
+          for (int i = count - 1; i >= 0; i--) {
+            double currentRight = -20.0;
+            if (count > 1) {
+               double t = (count - 1 - i) / (count - 1);
+               currentRight = rightmostRight + (leftmostRight - rightmostRight) * t;
+            }
+
+            children.add(
+              Positioned(
+                right: currentRight,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(-4, 0), // Shadow to the left
+                      ),
+                    ],
+                  ),
+                  child: isLoading || songs.isEmpty
+                      ? const VMusicSkeleton(width: 140, height: 140, borderRadius: 16)
+                      : ArtworkWidget(
+                          song: songs[i],
+                          size: imgSize,
+                          borderRadius: 16,
+                        ),
+                ),
+              ),
+            );
+          }
+
+          // Orange block
+          children.add(
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: orangeWidth,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(4, 0), // Shadow to the right
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            flex: 1,
-            child: GridView.count(
-              padding: const EdgeInsets.all(2),
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: List.generate(
-                4,
-                (index) => Padding(
-                  padding: const EdgeInsets.all(1),
-                  child: index < songs.length
-                      ? ArtworkWidget(song: songs[index], size: 70, borderRadius: 0)
-                      : Container(color: Colors.white10),
-                ),
-              ),
-            ),
-          ),
-        ],
+          );
+
+          return Stack(
+            clipBehavior: Clip.none,
+            children: children,
+          );
+        },
       ),
     );
   }

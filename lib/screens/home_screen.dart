@@ -103,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   SliverToBoxAdapter(
                     child: Column(
                       children: [
-                        const VMusicSectionHeader(title: 'Artistas'),
+                        const VMusicSectionHeader(title: 'Álbumes'),
                         HorizontalAlbums(
                           songs: provider.songs,
                           isLoading: provider.isLoading,
@@ -196,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Dynamic height based on whether a song is playing
           bottomNavigationBar: SizedBox(
-            height: provider.currentSong != null ? 145 : 85,
+            height: provider.currentSong != null ? 145 : 95,
             child: Stack(
               children: [
                 // Mini Player (Only shown when a song is active)

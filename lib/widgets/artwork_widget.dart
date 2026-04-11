@@ -17,7 +17,7 @@ class ArtworkWidget extends StatelessWidget {
     this.song,
     this.size = 200,
     this.borderRadius = 20,
-    this.showShadow = true,
+    this.showShadow = false,
     this.isPlaying = false,
   });
 
