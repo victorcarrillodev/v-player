@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
@@ -39,7 +42,7 @@ class PlayerScreen extends StatelessWidget {
               Positioned(
                 top: MediaQuery.of(context).size.height * 0.45 - artSize / 2,
                 left: w / 2 - artSize / 2,
-                child: _buildGlowingAura(artSize),
+                child: AudioVisualizerAura(artSize: artSize),
               ),
 
               // 3. Main content
@@ -189,67 +192,158 @@ class PlayerScreen extends StatelessWidget {
       },
     );
   }
-
-  // Creates the neon overlapping rings
-  Widget _buildGlowingAura(double size) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          // Blue/Cyan wave
-          Positioned(
-            left: -20, top: 10,
-            child: _GlowRing(size: size + 20, color: Colors.cyanAccent, thickness: 3, rotation: 0.1),
-          ),
-          // Purple wave
-          Positioned(
-            right: -25, top: 30,
-            child: _GlowRing(size: size + 30, color: Colors.purpleAccent, thickness: 4, rotation: -0.2),
-          ),
-          // Glowing Green wave
-          Positioned(
-            bottom: -15, left: -10,
-            child: _GlowRing(size: size + 15, color: Colors.greenAccent, thickness: 2, rotation: 0.5),
-          ),
-          // Light blue wave
-          Positioned(
-            top: -5, right: -15,
-            child: _GlowRing(size: size + 10, color: Colors.lightBlueAccent, thickness: 2, rotation: -0.8),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _GlowRing extends StatelessWidget {
-  final double size;
-  final Color color;
-  final double thickness;
-  final double rotation;
+class AudioVisualizerAura extends StatefulWidget {
+  final double artSize;
+  const AudioVisualizerAura({super.key, required this.artSize});
 
-  const _GlowRing({required this.size, required this.color, required this.thickness, required this.rotation});
+  @override
+  State<AudioVisualizerAura> createState() => _AudioVisualizerAuraState();
+}
+
+class _AudioVisualizerAuraState extends State<AudioVisualizerAura> with TickerProviderStateMixin {
+  late AnimationController _rotationController;
+  
+  // Simulated rhythm variables
+  late AnimationController _pulseController;
+  double _currentAmplitude = 0.1;
+  double _targetAmplitude = 0.1;
+  Timer? _rhythmTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+        vsync: this, duration: const Duration(seconds: 4))
+      ..repeat();
+
+    _pulseController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 150));
+    _pulseController.addListener(() {
+      setState(() {});
+    });
+
+    _rhythmTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+      final provider = context.read<MusicProvider>();
+      if (provider.isPlaying) {
+        _currentAmplitude = _currentAmplitude + (_targetAmplitude - _currentAmplitude) * _pulseController.value;
+        _targetAmplitude = 1.0 + Random().nextDouble() * 0.05; // 6% random pulse
+        _pulseController.forward(from: 0.0);
+      } else {
+        if (_targetAmplitude != 1.0 || _currentAmplitude != 1.0) {
+          _currentAmplitude = _currentAmplitude + (_targetAmplitude - _currentAmplitude) * _pulseController.value;
+          _targetAmplitude = 1.0;
+          _pulseController.forward(from: 0.0);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rhythmTimer?.cancel();
+    _rotationController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: rotation,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: color.withOpacity(0.6), width: thickness),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.3),
-              blurRadius: 15,
-              spreadRadius: 2,
-            ),
-          ],
+    return Consumer<MusicProvider>(
+      builder: (context, provider, _) {
+        final rhythmScale = _currentAmplitude + (_targetAmplitude - _currentAmplitude) * Curves.easeOut.transform(_pulseController.value);
+
+        return AnimatedBuilder(
+          animation: _rotationController,
+          builder: (context, child) {
+            final v = _rotationController.value;
+            return SizedBox(
+              width: widget.artSize,
+              height: widget.artSize,
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                scale: provider.isPlaying ? 1.0 : 0.8, // Shrinks when paused
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 800),
+                  opacity: provider.isPlaying ? 1.0 : 0.0, // Fades out when paused
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                       // Capa 1: Morphing Blob (Cyan/Blue)
+                       _buildBlob(
+                         color: const Color(0x4D00BCD4),
+                         scale: 1.08 * rhythmScale, // Rotates forward
+                         rotation: v * 2 * pi, 
+                         radius: BorderRadius.only(
+                           topLeft: Radius.circular(widget.artSize * (0.47 + 0.05 * sin(v * 2 * pi))),
+                           topRight: Radius.circular(widget.artSize * (0.47 + 0.05 * cos(v * 2 * pi + pi/4))),
+                           bottomLeft: Radius.circular(widget.artSize * (0.47 + 0.05 * cos(v * 2 * pi - pi/4))),
+                           bottomRight: Radius.circular(widget.artSize * (0.47 - 0.05 * sin(v * 2 * pi))),
+                         ),
+                       ),
+                       // Capa 2: Morphing Blob (Purple)
+                       _buildBlob(
+                         color: const Color(0x66E040FB),
+                         scale: 1.05 * rhythmScale, // Rotates backward, faster
+                         rotation: -(v * 2 * pi * 1.5), 
+                         radius: BorderRadius.only(
+                           topLeft: Radius.circular(widget.artSize * (0.48 - 0.04 * cos(v * 2 * pi))),
+                           topRight: Radius.circular(widget.artSize * (0.48 + 0.04 * sin(v * 2 * pi))),
+                           bottomLeft: Radius.circular(widget.artSize * (0.48 + 0.04 * cos(v * 2 * pi))),
+                           bottomRight: Radius.circular(widget.artSize * (0.48 - 0.04 * sin(v * 2 * pi))),
+                         ),
+                       ),
+                       // Capa 3: Morphing Blob (Orange Accent)
+                       _buildBlob(
+                         color: const Color(0x80FFAB40),
+                         scale: 1.02 * rhythmScale, // Rotates forward, slower
+                         rotation: v * 2 * pi * 0.8, 
+                         radius: BorderRadius.only(
+                           topLeft: Radius.circular(widget.artSize * (0.49 + 0.03 * sin(v * 2 * pi))),
+                           topRight: Radius.circular(widget.artSize * (0.49 + 0.03 * cos(v * 2 * pi))),
+                           bottomLeft: Radius.circular(widget.artSize * (0.49 - 0.03 * cos(v * 2 * pi))),
+                           bottomRight: Radius.circular(widget.artSize * (0.49 - 0.03 * sin(v * 2 * pi))),
+                         ),
+                       ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBlob({
+    required Color color,
+    required double scale,
+    required double rotation,
+    required BorderRadius radius,
+  }) {
+    return Transform.scale(
+      scale: scale,
+      child: Transform.rotate(
+        angle: rotation,
+        child: Container(
+          width: widget.artSize,
+          height: widget.artSize,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: radius,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.15),
+                blurRadius: 15,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -301,7 +395,7 @@ class _ProgressBar extends StatelessWidget {
             activeTrackColor: Colors.white,
             inactiveTrackColor: const Color(0xFF2C3040),
             thumbColor: Colors.white,
-            overlayColor: Colors.white.withOpacity(0.2),
+            overlayColor: Colors.white.withValues(alpha: 0.2),
           ),
           child: Slider(
             value: (totalMs > 0 ? currentMs / totalMs : 0).toDouble(),

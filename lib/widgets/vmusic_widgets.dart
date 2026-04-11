@@ -599,10 +599,10 @@ class PlaylistCard extends StatelessWidget {
           List<Widget> children = [];
           
           final double orangeWidth = totalWidth * 0.42;
-          final double imgSize = 140.0;
+          const double imgSize = 140.0;
           
           final double leftmostLeft = orangeWidth - 25.0; // Overlap under the orange block
-          final double rightmostRight = -20.0; // Slight bleed on the right
+          const double rightmostRight = -20.0; // Slight bleed on the right
           final double leftmostRight = totalWidth - leftmostLeft - imgSize;
           
           for (int i = count - 1; i >= 0; i--) {
