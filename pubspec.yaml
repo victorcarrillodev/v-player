@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   just_audio: ^0.9.43
+  just_audio_background: any
   audio_session: ^0.1.21
   permission_handler: ^11.3.1
   palette_generator: ^0.3.3+3

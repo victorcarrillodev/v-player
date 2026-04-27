@@ -6,10 +6,16 @@ class AppTheme {
   static const Color surface = Color(0xFF1C1E2D);
   static const Color surfaceVariant = Color(0xFF26293D);
   static const Color primary = Color(0xFFFF5722);
-  static const Color accent = Color(0xFFFF7043);
+  static const Color accent = Color(0xFFFFB300); // Amber 600, much more yellow-orange to make gradient prominent
   static const Color onSurface = Color(0xFFFFFFFF);
   static const Color onSurfaceMuted = Color(0xFF8E92A3);
   static const Color cardGlow = Color(0x30FF5722);
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [primary, accent],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   static ThemeData get theme {
     return ThemeData(

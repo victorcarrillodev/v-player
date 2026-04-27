@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +22,8 @@ class MusicProvider extends ChangeNotifier {
   List<AppSong> _filteredSongs = [];
   List<AppSong> _currentQueue = [];
   List<AppPlaylist> _playlists = [];
+  List<int> _history = [];
+  Map<String, int> _playCounts = {};
   AppSong? _currentSong;
   int _currentIndex = -1;
   bool _isPlaying = false;
@@ -40,6 +44,20 @@ class MusicProvider extends ChangeNotifier {
   List<AppSong> get songs => _searchQuery.isEmpty ? _songs : _filteredSongs;
   List<AppSong> get currentQueue => _currentQueue.isEmpty ? songs : _currentQueue;
   List<AppPlaylist> get playlists => _playlists;
+
+  AppPlaylist get historyPlaylist => AppPlaylist(id: 'history', name: 'Historial', songIds: _history);
+  
+  AppPlaylist get mostPlayedPlaylist {
+    final sorted = _playCounts.entries.toList()..sort((a,b) => b.value.compareTo(a.value));
+    final ids = sorted.map((e) => int.parse(e.key)).toList();
+    return AppPlaylist(id: 'most_played', name: 'Más Reproducido', songIds: ids);
+  }
+
+  AppPlaylist get latestAddedPlaylist {
+    final latest = List<AppSong>.from(_songs)..sort((a,b) => b.id.compareTo(a.id));
+    final ids = latest.map((e) => e.id).toList();
+    return AppPlaylist(id: 'latest', name: 'Último Añadido', songIds: ids);
+  }
   
   AppPlaylist get favoritesPlaylist {
     return _playlists.firstWhere(
@@ -62,6 +80,7 @@ class MusicProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get hasPermission => _hasPermission;
   Duration get currentPosition => _currentPosition;
+  Stream<Duration> get positionStream => _audioPlayer.positionStream;
   Duration get totalDuration => _totalDuration;
   RepeatMode get repeatMode => _repeatMode;
   bool get isShuffling => _isShuffling;
@@ -76,6 +95,7 @@ class MusicProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    await _loadStats();
     await _loadPlaylists();
     await _requestPermissions();
     if (_hasPermission) {
@@ -83,17 +103,58 @@ class MusicProvider extends ChangeNotifier {
       _currentQueue = _songs; // Default queue
     }
 
+    // Handle audio focus changes (phone calls, other apps, etc.)
+    final session = await AudioSession.instance;
+    session.interruptionEventStream.listen((event) {
+      if (event.begin) {
+        // Another app took audio focus - pause
+        switch (event.type) {
+          case AudioInterruptionType.duck:
+            // Lower volume temporarily
+            _audioPlayer.setVolume(0.5);
+            break;
+          case AudioInterruptionType.pause:
+          case AudioInterruptionType.unknown:
+            _audioPlayer.pause();
+            break;
+        }
+      } else {
+        // We regained audio focus
+        switch (event.type) {
+          case AudioInterruptionType.duck:
+            _audioPlayer.setVolume(1.0);
+            break;
+          case AudioInterruptionType.pause:
+          case AudioInterruptionType.unknown:
+            // Only resume if we were playing before
+            if (_isPlaying) _audioPlayer.play();
+            break;
+        }
+      }
+    });
+
     _audioPlayer.playerStateStream.listen((state) {
       _isPlaying = state.playing;
-      if (state.processingState == ProcessingState.completed) {
-        _onSongCompleted();
-      }
       notifyListeners();
+    });
+
+    _audioPlayer.currentIndexStream.listen((index) {
+      if (index != null && _currentQueue.isNotEmpty && index < _currentQueue.length) {
+        _currentIndex = index;
+        _currentSong = _currentQueue[index];
+        _history.remove(_currentSong!.id);
+        _history.insert(0, _currentSong!.id);
+        if (_history.length > 200) _history.removeLast();
+        _playCounts[_currentSong!.id.toString()] = (_playCounts[_currentSong!.id.toString()] ?? 0) + 1;
+        _saveStats();
+        _updateThemeColors(_currentSong!);
+        notifyListeners();
+      }
     });
 
     _audioPlayer.positionStream.listen((pos) {
       _currentPosition = pos;
-      notifyListeners();
+      // Removed notifyListeners() to prevent UI freezing (massive performance gain)
     });
 
     _audioPlayer.durationStream.listen((dur) {
@@ -103,6 +164,12 @@ class MusicProvider extends ChangeNotifier {
       }
     });
 
+    // Skip broken/unreadable files automatically
+    _audioPlayer.playbackEventStream.listen((_) {}, onError: (Object e, StackTrace st) {
+      debugPrint('Playback error: $e');
+      _audioPlayer.seekToNext();
+    });
+
     _isLoading = false;
     notifyListeners();
   }
@@ -110,6 +177,10 @@ class MusicProvider extends ChangeNotifier {
   Future<void> _requestPermissions() async {
     PermissionStatus audioStatus = await Permission.audio.request();
     PermissionStatus storageStatus = await Permission.storage.request();
+    // Android 13+ requires explicit notification permission for media controls
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
     _hasPermission = audioStatus.isGranted || storageStatus.isGranted;
     notifyListeners();
   }
@@ -140,6 +211,21 @@ class MusicProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> _loadStats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final histJson = prefs.getString('history') ?? '[]';
+    _history = List<int>.from(jsonDecode(histJson));
+    final countsJson = prefs.getString('play_counts') ?? '{}';
+    final countsMap = jsonDecode(countsJson) as Map<String, dynamic>;
+    _playCounts = countsMap.map((k, v) => MapEntry(k, v as int));
+  }
+
+  Future<void> _saveStats() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('history', jsonEncode(_history));
+    prefs.setString('play_counts', jsonEncode(_playCounts));
   }
 
   Future<void> _loadPlaylists() async {
@@ -177,9 +263,15 @@ class MusicProvider extends ChangeNotifier {
     _savePlaylists();
   }
 
-  void createPlaylist(String name) {
+  String createPlaylist(String name, {List<int>? initialSongs}) {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    _playlists.add(AppPlaylist(id: id, name: name, songIds: []));
+    _playlists.add(AppPlaylist(id: id, name: name, songIds: initialSongs != null ? List<int>.from(initialSongs) : []));
+    _savePlaylists();
+    return id;
+  }
+
+  void deletePlaylist(String playlistId) {
+    _playlists.removeWhere((p) => p.id == playlistId);
     _savePlaylists();
   }
 
@@ -187,6 +279,14 @@ class MusicProvider extends ChangeNotifier {
     final playlist = _playlists.firstWhere((p) => p.id == playlistId);
     if (!playlist.songIds.contains(songId)) {
       playlist.songIds.add(songId);
+      _savePlaylists();
+    }
+  }
+
+  void removeSongFromPlaylist(String playlistId, int songId) {
+    final playlist = _playlists.firstWhere((p) => p.id == playlistId);
+    if (playlist.songIds.contains(songId)) {
+      playlist.songIds.remove(songId);
       _savePlaylists();
     }
   }
@@ -207,27 +307,53 @@ class MusicProvider extends ChangeNotifier {
 
   Future<void> playSong(AppSong song, int index, {List<AppSong>? queueContext}) async {
     try {
-      if (queueContext != null) {
+      bool queueChanged = false;
+      if (queueContext != null && queueContext != _currentQueue) {
          _currentQueue = queueContext;
+         queueChanged = true;
       } else if (_currentQueue.isEmpty && _songs.isNotEmpty) {
          _currentQueue = _songs;
+         queueChanged = true;
+      } else if (queueContext == null && !_currentQueue.contains(song)) {
+         _currentQueue = _songs;
+         queueChanged = true;
       }
 
-      _currentSong = song;
-      _currentIndex = index;
       _isLoading = true;
       notifyListeners();
 
-      if (song.uri != null) {
-        await _audioPlayer.setAudioSource(
-          AudioSource.uri(Uri.parse(song.uri!)),
+      if (queueChanged || _audioPlayer.audioSource == null) {
+        final audioSource = ConcatenatingAudioSource(
+          children: _currentQueue.map((s) {
+            // Use the standard album art content URI that Android's media notification can resolve
+            final albumArtUri = Uri.parse(
+              'content://media/external/audio/albumart/${s.albumId}',
+            );
+            return AudioSource.uri(
+              Uri.parse(s.uri ?? ''),
+              tag: MediaItem(
+                id: s.id.toString(),
+                album: s.album,
+                title: s.title,
+                artist: s.artist,
+                duration: Duration(milliseconds: s.duration),
+                artUri: albumArtUri,
+                extras: {
+                  'albumId': s.albumId,
+                },
+              ),
+            );
+          }).where((s) => s.uri != Uri.parse('')).toList(),
         );
-        await _audioPlayer.play();
+
+        await _audioPlayer.setAudioSource(audioSource, initialIndex: index, initialPosition: Duration.zero);
+      } else {
+        await _audioPlayer.seek(Duration.zero, index: index);
       }
+
+      await _audioPlayer.play();
       _isLoading = false;
       notifyListeners();
-
-      _updateThemeColors(song);
     } catch (e) {
       debugPrint('Error playing song: $e');
       _isLoading = false;
@@ -266,53 +392,14 @@ class MusicProvider extends ChangeNotifier {
   }
 
   Future<void> playNext() async {
-    final list = currentQueue;
-    if (list.isEmpty) return;
-    int nextIndex;
-    if (_isShuffling && _shuffledIndices.isNotEmpty) {
-      final currentShufflePos = _shuffledIndices.indexOf(_currentIndex);
-      final nextShufflePos = (currentShufflePos + 1) % _shuffledIndices.length;
-      nextIndex = _shuffledIndices[nextShufflePos];
-    } else {
-      nextIndex = (_currentIndex + 1) % list.length;
-    }
-    await playSong(list[nextIndex], nextIndex);
+    await _audioPlayer.seekToNext();
   }
 
   Future<void> playPrevious() async {
-    final list = currentQueue;
-    if (list.isEmpty) return;
     if (_currentPosition.inSeconds > 3) {
       await _audioPlayer.seek(Duration.zero);
-      return;
-    }
-    int prevIndex;
-    if (_isShuffling && _shuffledIndices.isNotEmpty) {
-      final currentShufflePos = _shuffledIndices.indexOf(_currentIndex);
-      final prevShufflePos =
-          (currentShufflePos - 1 + _shuffledIndices.length) %
-              _shuffledIndices.length;
-      prevIndex = _shuffledIndices[prevShufflePos];
     } else {
-      prevIndex = (_currentIndex - 1 + list.length) % list.length;
-    }
-    await playSong(list[prevIndex], prevIndex);
-  }
-
-  void _onSongCompleted() {
-    switch (_repeatMode) {
-      case RepeatMode.one:
-        _audioPlayer.seek(Duration.zero);
-        _audioPlayer.play();
-        break;
-      case RepeatMode.all:
-        playNext();
-        break;
-      case RepeatMode.off:
-        if (_currentIndex < currentQueue.length - 1) {
-          playNext();
-        }
-        break;
+      await _audioPlayer.seekToPrevious();
     }
   }
 
@@ -320,32 +407,30 @@ class MusicProvider extends ChangeNotifier {
     switch (_repeatMode) {
       case RepeatMode.off:
         _repeatMode = RepeatMode.all;
+        _audioPlayer.setLoopMode(LoopMode.all);
         break;
       case RepeatMode.all:
         _repeatMode = RepeatMode.one;
+        _audioPlayer.setLoopMode(LoopMode.one);
         break;
       case RepeatMode.one:
         _repeatMode = RepeatMode.off;
+        _audioPlayer.setLoopMode(LoopMode.off);
         break;
     }
     notifyListeners();
   }
 
-  /// Plays a shuffled list of songs starting from index 0.
   Future<void> playShuffledQueue(List<AppSong> shuffled) async {
     if (shuffled.isEmpty) return;
-    _isShuffling = true;
-    _shuffledIndices = List.generate(shuffled.length, (i) => i);
     _currentQueue = shuffled;
-    notifyListeners();
-    await playSong(shuffled[0], 0);
+    // Set audio source to the new shuffled queue natively
+    await playSong(shuffled[0], 0, queueContext: shuffled);
   }
 
   void toggleShuffle() {
     _isShuffling = !_isShuffling;
-    if (_isShuffling) {
-      _shuffledIndices = List.generate(currentQueue.length, (i) => i)..shuffle();
-    }
+    _audioPlayer.setShuffleModeEnabled(_isShuffling);
     notifyListeners();
   }
 

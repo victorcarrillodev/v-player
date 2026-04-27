@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
 import '../models/song_model.dart';
 import '../theme/app_theme.dart';
+import '../widgets/gradient_mask.dart';
 
 class ArtworkWidget extends StatelessWidget {
   final AppSong? song;
@@ -47,6 +48,7 @@ class ArtworkWidget extends StatelessWidget {
               height: size,
               fit: BoxFit.cover,
               gaplessPlayback: true,
+              cacheWidth: (size * 2).toInt(),
             )
           : _buildPlaceholder(),
     );
@@ -84,10 +86,15 @@ class ArtworkWidget extends StatelessWidget {
           colors: [Color(0xFF1E1E35), Color(0xFF2A1A4A)],
         ),
       ),
-      child: Icon(
-        Icons.music_note_rounded,
-        size: size * 0.4,
-        color: AppTheme.primary.withValues(alpha: 0.6),
+      child: Opacity(
+        opacity: 0.6,
+        child: GradientMask(
+          child: Icon(
+            Icons.music_note_rounded,
+            size: size * 0.4,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }

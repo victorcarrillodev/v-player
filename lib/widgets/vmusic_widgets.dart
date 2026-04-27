@@ -2,10 +2,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/song_model.dart';
+import '../models/playlist_model.dart';
 import 'artwork_widget.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
 import '../screens/player_screen.dart';
+import '../screens/playlist_screen.dart';
 
 class VMusicSectionHeader extends StatelessWidget {
   final String title;
@@ -33,10 +35,18 @@ class VMusicSectionHeader extends StatelessWidget {
               letterSpacing: -0.5,
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 24),
-            onPressed: onMorePressed,
-          ),
+          if (onMorePressed != null)
+            GestureDetector(
+              onTap: onMorePressed,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 24),
+              ),
+            ),
         ],
       ),
     );
@@ -48,22 +58,61 @@ class ActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
-      child: GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 6,
-        children: const [
-          _ActionButton(label: 'Aleatorio', icon: Icons.shuffle_rounded),
-          _ActionButton(label: 'Historial', icon: Icons.history_rounded),
-          _ActionButton(label: 'Más reproducido', icon: Icons.trending_up_rounded),
-          _ActionButton(label: 'Último añadido', icon: Icons.add_box_rounded),
-        ],
-      ),
+    return Consumer<MusicProvider>(
+      builder: (context, provider, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 6,
+            children: [
+              _ActionButton(
+                label: 'Aleatorio',
+                icon: Icons.shuffle_rounded,
+                onTap: () {
+                  if (provider.songs.isNotEmpty) {
+                    provider.playShuffledQueue(List.from(provider.songs)..shuffle());
+                  }
+                },
+              ),
+              _ActionButton(
+                label: 'Historial',
+                icon: Icons.history_rounded,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => PlaylistScreen(playlist: provider.historyPlaylist)),
+                  );
+                },
+              ),
+              _ActionButton(
+                label: 'Más reproducido',
+                icon: Icons.trending_up_rounded,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => PlaylistScreen(playlist: provider.mostPlayedPlaylist)),
+                  );
+                },
+              ),
+              _ActionButton(
+                label: 'Último añadido',
+                icon: Icons.add_box_rounded,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => PlaylistScreen(playlist: provider.latestAddedPlaylist)),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -71,34 +120,38 @@ class ActionGrid extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
+  final VoidCallback onTap;
 
-  const _ActionButton({required this.label, required this.icon});
+  const _ActionButton({required this.label, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.primary,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: AppTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -153,7 +206,7 @@ class _VMusicSkeletonState extends State<VMusicSkeleton> with SingleTickerProvid
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(_animation.value),
+            color: Colors.white.withValues(alpha: _animation.value),
             borderRadius: widget.isCircle ? null : BorderRadius.circular(widget.borderRadius),
             shape: widget.isCircle ? BoxShape.circle : BoxShape.rectangle,
           ),
@@ -163,16 +216,45 @@ class _VMusicSkeletonState extends State<VMusicSkeleton> with SingleTickerProvid
   }
 }
 
-class HorizontalArtists extends StatelessWidget {
+class HorizontalArtists extends StatefulWidget {
   final List<AppSong> songs;
   final bool isLoading;
   const HorizontalArtists({super.key, required this.songs, this.isLoading = false});
 
   @override
+  State<HorizontalArtists> createState() => _HorizontalArtistsState();
+}
+
+class _HorizontalArtistsState extends State<HorizontalArtists> {
+  List<String> _randomArtists = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _shuffle();
+  }
+
+  @override
+  void didUpdateWidget(HorizontalArtists oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.songs != widget.songs) {
+      _shuffle();
+    }
+  }
+
+  void _shuffle() {
+    final artists = widget.songs.map((s) => s.artist).toSet().toList();
+    artists.shuffle(Random());
+    setState(() {
+      _randomArtists = artists.take(20).toList();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (isLoading || songs.isEmpty) {
+    if (widget.isLoading || widget.songs.isEmpty) {
       return SizedBox(
-        height: 155,
+        height: 120,
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
@@ -192,22 +274,26 @@ class HorizontalArtists extends StatelessWidget {
       );
     }
 
-    final artists = songs.map((s) => s.artist).toSet().toList();
-
     return SizedBox(
-      height: 155,
+      height: 120,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
-        itemCount: artists.length,
+        itemCount: _randomArtists.length,
         itemBuilder: (context, index) {
-          final artist = artists[index];
-          final firstSong = songs.firstWhere((s) => s.artist == artist);
+          final artist = _randomArtists[index];
+          final firstSong = widget.songs.firstWhere((s) => s.artist == artist);
           return Container(
             width: 100,
             margin: const EdgeInsets.only(right: 16),
-            child: Column(
-              children: [
+            child: GestureDetector(
+              onTap: () {
+                final artistSongs = widget.songs.where((s) => s.artist == artist).map((s) => s.id).toList();
+                final playlist = AppPlaylist(id: 'artist_$artist', name: artist, songIds: artistSongs);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => PlaylistScreen(playlist: playlist)));
+              },
+              child: Column(
+                children: [
                 CircleAvatar(
                   radius: 40,
                   backgroundColor: Colors.transparent,
@@ -224,6 +310,7 @@ class HorizontalArtists extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ],
+            ),
             ),
           );
         },
@@ -413,11 +500,7 @@ class _MixedSuggestionsState extends State<MixedSuggestions> {
       onTap: () => _playShuffledQueue(context),
       child: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFF5722), Color(0xFFFF7043)],
-          ),
+          gradient: AppTheme.primaryGradient,
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Column(
@@ -480,16 +563,49 @@ class _MixedSuggestionsState extends State<MixedSuggestions> {
   }
 }
 
-class HorizontalAlbums extends StatelessWidget {
+class HorizontalAlbums extends StatefulWidget {
   final List<AppSong> songs;
   final bool isLoading;
   const HorizontalAlbums({super.key, required this.songs, this.isLoading = false});
 
   @override
+  State<HorizontalAlbums> createState() => _HorizontalAlbumsState();
+}
+
+class _HorizontalAlbumsState extends State<HorizontalAlbums> {
+  List<AppSong> _randomAlbums = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _shuffle();
+  }
+
+  @override
+  void didUpdateWidget(HorizontalAlbums oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.songs != widget.songs) {
+      _shuffle();
+    }
+  }
+
+  void _shuffle() {
+    final albumMap = <String, AppSong>{};
+    for (var s in widget.songs) {
+      albumMap.putIfAbsent(s.album, () => s);
+    }
+    final albums = albumMap.values.toList();
+    albums.shuffle(Random());
+    setState(() {
+      _randomAlbums = albums.take(20).toList();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (isLoading || songs.isEmpty) {
+    if (widget.isLoading || widget.songs.isEmpty) {
       return SizedBox(
-        height: 195,
+        height: 185,
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
@@ -513,27 +629,30 @@ class HorizontalAlbums extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 195,
+      height: 185,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
-        itemCount: songs.length > 10 ? 10 : songs.length,
+        itemCount: _randomAlbums.length,
         itemBuilder: (context, index) {
-          final song = songs[index];
+          final song = _randomAlbums[index];
           return Container(
             width: 130,
             margin: const EdgeInsets.only(right: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: () => _playAndNavigate(context, song, index),
-                  child: ArtworkWidget(song: song, size: 130, borderRadius: 12),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  song.title,
-                  style: const TextStyle(
+            child: GestureDetector(
+              onTap: () {
+                final albumSongs = widget.songs.where((s) => s.album == song.album).map((s) => s.id).toList();
+                final playlist = AppPlaylist(id: 'album_${song.album}', name: song.album, songIds: albumSongs);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => PlaylistScreen(playlist: playlist)));
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ArtworkWidget(song: song, size: 130, borderRadius: 12),
+                  const SizedBox(height: 8),
+                  Text(
+                    song.title,
+                    style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -549,26 +668,8 @@ class HorizontalAlbums extends StatelessWidget {
                 ),
               ],
             ),
+            ),
           );
-        },
-      ),
-    );
-  }
-
-  void _playAndNavigate(BuildContext context, AppSong song, int index) {
-    final provider = context.read<MusicProvider>();
-    provider.playSong(song, index);
-    
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const PlayerScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(0.0, 1.0);
-          const end = Offset.zero;
-          const curve = Curves.easeOutQuart;
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          return SlideTransition(position: animation.drive(tween), child: child);
         },
       ),
     );
@@ -576,18 +677,23 @@ class HorizontalAlbums extends StatelessWidget {
 }
 
 class PlaylistCard extends StatelessWidget {
+  final AppPlaylist playlist;
   final String title;
   final List<AppSong> songs;
   final bool isLoading;
 
-  const PlaylistCard({super.key, required this.title, required this.songs, this.isLoading = false});
+  const PlaylistCard({super.key, required this.playlist, required this.title, required this.songs, this.isLoading = false});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 140,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => PlaylistScreen(playlist: playlist)));
+      },
+      child: Container(
+        height: 140,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.none,
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E26),
         borderRadius: BorderRadius.circular(16),
@@ -649,7 +755,7 @@ class PlaylistCard extends StatelessWidget {
               width: orangeWidth,
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
+                  gradient: AppTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -678,6 +784,7 @@ class PlaylistCard extends StatelessWidget {
             children: children,
           );
         },
+      ),
       ),
     );
   }
@@ -861,7 +968,8 @@ class _TabItem extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFFF5722) : Colors.transparent,
+                gradient: isSelected ? AppTheme.primaryGradient : null,
+                color: isSelected ? null : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(

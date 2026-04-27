@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 class AppPlaylist {
   final String id;

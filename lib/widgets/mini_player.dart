@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/artwork_widget.dart';
+import '../widgets/gradient_mask.dart';
 import '../screens/player_screen.dart';
 
 class MiniPlayer extends StatelessWidget {
@@ -15,10 +16,6 @@ class MiniPlayer extends StatelessWidget {
         if (provider.currentSong == null) return const SizedBox.shrink();
 
         final song = provider.currentSong!;
-        final progress = provider.totalDuration.inMilliseconds > 0
-            ? provider.currentPosition.inMilliseconds /
-                provider.totalDuration.inMilliseconds
-            : 0.0;
 
         return GestureDetector(
           onTap: () => Navigator.push(
@@ -37,17 +34,17 @@ class MiniPlayer extends StatelessWidget {
             ),
           ),
           child: Container(
-            margin: const EdgeInsets.all(12),
+            margin: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
               color: AppTheme.surfaceVariant,
               border: Border.all(
-                color: AppTheme.primary.withOpacity(0.2),
+                color: AppTheme.primary.withValues(alpha: 0.2),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primary.withOpacity(0.2),
+                  color: AppTheme.primary.withValues(alpha: 0.2),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -60,12 +57,23 @@ class MiniPlayer extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(20),
                   ),
-                  child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    backgroundColor: Colors.transparent,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppTheme.accent),
-                    minHeight: 2,
+                  child: StreamBuilder<Duration>(
+                    stream: provider.positionStream,
+                    builder: (context, snapshot) {
+                      final currentPos = snapshot.data ?? provider.currentPosition;
+                      final progress = provider.totalDuration.inMilliseconds > 0
+                          ? currentPos.inMilliseconds / provider.totalDuration.inMilliseconds
+                          : 0.0;
+                      return GradientMask(
+                        child: LinearProgressIndicator(
+                          value: progress.clamp(0.0, 1.0),
+                          backgroundColor: Colors.transparent,
+                          valueColor:
+                              const AlwaysStoppedAnimation<Color>(Colors.white),
+                          minHeight: 2,
+                        ),
+                      );
+                    },
                   ),
                 ),
                 Padding(
@@ -168,7 +176,7 @@ class _PlayPauseButton extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary.withOpacity(0.4),
+              color: AppTheme.primary.withValues(alpha: 0.4),
               blurRadius: 10,
             ),
           ],

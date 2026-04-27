@@ -8,11 +8,17 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import android.util.Size
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
 
     private val CHANNEL = "com.example.v_player/media"
 
@@ -25,11 +31,17 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "querySongs" -> {
-                    try {
-                        val songs = querySongs()
-                        result.success(songs)
-                    } catch (e: Exception) {
-                        result.error("ERROR", e.message, null)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val songs = querySongs()
+                            withContext(Dispatchers.Main) {
+                                result.success(songs)
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                result.error("ERROR", e.message, null)
+                            }
+                        }
                     }
                 }
                 "queryArtwork" -> {
@@ -38,11 +50,17 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
                     val uri = call.argument<String>("uri")
-                    try {
-                        val artwork = getArtwork(songId.toLong(), uri)
-                        result.success(artwork)
-                    } catch (e: Exception) {
-                        result.success(null)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val artwork = getArtwork(songId.toLong(), uri)
+                            withContext(Dispatchers.Main) {
+                                result.success(artwork)
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                result.success(null)
+                            }
+                        }
                     }
                 }
                 else -> result.notImplemented()
@@ -114,6 +132,17 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun getArtwork(songId: Long, songUri: String?): ByteArray? {
+        // Fast path for Android 10+ using ContentResolver.loadThumbnail
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId)
+                val bitmap = contentResolver.loadThumbnail(uri, Size(300, 300), null)
+                val out = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                return out.toByteArray()
+            } catch (_: Exception) {}
+        }
+
         // Try album art from MediaStore
         try {
             val albumArtUri = Uri.parse("content://media/external/audio/albumart")
@@ -128,7 +157,7 @@ class MainActivity : FlutterActivity() {
             }
         } catch (_: Exception) {}
 
-        // Try extracting from file using MediaMetadataRetriever
+        // Fallback: extracting from file using MediaMetadataRetriever (Slowest)
         if (!songUri.isNullOrEmpty()) {
             try {
                 val retriever = MediaMetadataRetriever()
