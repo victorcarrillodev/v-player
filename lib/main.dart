@@ -15,9 +15,9 @@ Future<void> main() async {
     androidNotificationChannelName: 'VPlayer - Reproducción de audio',
     androidNotificationOngoing: true,
     androidNotificationIcon: 'mipmap/ic_launcher',
-    // Allow the notification to move out of foreground when paused,
-    // so Android can reclaim resources; the notification remains visible.
-    androidStopForegroundOnPause: true,
+    // Mantiene el servicio en primer plano incluso en pausa para evitar que 
+    // el sistema operativo (o el usuario al cerrar la app) mate la notificación.
+    androidStopForegroundOnPause: false,
     preloadArtwork: true,
     androidNotificationClickStartsActivity: true,
     androidShowNotificationBadge: true,

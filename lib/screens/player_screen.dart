@@ -141,9 +141,9 @@ class _PlayerScreenState extends State<PlayerScreen>
               children: [
                 // 0. Morphing blob visualizer — aligned with artwork center
                 Positioned(
-                  top: MediaQuery.of(context).size.height * 0.45 - artSize * 0.34,
-                  left: w / 2 - artSize * 0.34,
-                  child: AudioVisualizerAura(artSize: artSize * 0.68, song: song),
+                  top: MediaQuery.of(context).size.height * 0.45 - artSize * 0.65,
+                  left: w / 2 - artSize * 0.65,
+                  child: AudioVisualizerAura(artSize: artSize * 1.3, song: song),
                 ),
 
                 // 1. Dynamic-color top banner
@@ -458,7 +458,9 @@ class AudioVisualizerAura extends StatefulWidget {
 class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
     with SingleTickerProviderStateMixin {
   late AnimationController _rotationController;
-  double _amp = 1.0;
+  double _ampBass = 0.75;
+  double _ampMid = 0.75;
+  double _ampTreble = 0.70;
   Timer? _rhythmTimer;
 
   // Colors extracted from artwork (fallback to app palette)
@@ -473,19 +475,51 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
     _rotationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    )..repeat();
+    ); // NOT .repeat() here — only starts when music plays
 
-    // High-reactivity beat simulation: 25fps, wide amplitude swing
-    _rhythmTimer = Timer.periodic(const Duration(milliseconds: 40), (_) {
+    // Music-reactive loop: 25fps
+    // - Playing  → rotation runs + amp pulses organically
+    // - Paused   → rotation stops + amp returns smoothly to 1.0
+    _rhythmTimer = Timer.periodic(const Duration(milliseconds: 30), (_) {
       if (!mounted) return;
-      final isPlaying = context.read<MusicProvider>().isPlaying;
-      // target swings from 1.0 (rest) up to 1.55 (peak)
-      final target = isPlaying ? 1.0 + Random().nextDouble() * 0.55 : 1.0;
-      setState(() {
-        // Fast attack (0.85) — respond instantly to peaks
-        // Slow decay (0.04) — hold the peak shape a bit before deflating
-        _amp += (target - _amp) * (target > _amp ? 0.85 : 0.04);
-      });
+      final provider = context.read<MusicProvider>();
+      final isPlaying = provider.isPlaying;
+
+      if (isPlaying) {
+        if (!_rotationController.isAnimating) _rotationController.repeat();
+
+        // Vincular la fase directamente a los ms de la canción para una "sincronización" determinista
+        final ms = provider.currentPosition.inMilliseconds;
+        final phase = ms / 1000.0 * pi; // Avanza PI cada segundo
+        
+        // Graves (Bass): Picos fuertes basados en el tiempo de la canción
+        double bassPulse = pow(sin(phase * 1.8), 16).toDouble();
+        if (sin(phase * 0.4) < -0.3) bassPulse *= 0.1; // Descansos periódicos
+        final targetBass = 0.75 + (bassPulse * 0.55); // 0.75 (oculto) a 1.30 (muy visible)
+        
+        // Medios (Mids): Más constante, fluctuaciones
+        double midPulse = (sin(phase * 2.8) * 0.5 + sin(phase * 1.2) * 0.5).abs();
+        final targetMid = 0.75 + (midPulse * 0.35); // 0.75 a 1.10
+        
+        // Agudos (Treble): Picos rápidos, caóticos y de corta duración
+        double treblePulse = pow(sin(phase * 6.7), 6).toDouble() * sin(phase * 11.3).abs();
+        if (sin(phase * 0.8) > 0.5) treblePulse *= 0.2; 
+        final targetTreble = 0.70 + (treblePulse * 0.50); // 0.70 a 1.20
+
+        setState(() {
+          _ampBass += (targetBass - _ampBass) * (targetBass > _ampBass ? 0.75 : 0.05);
+          _ampMid += (targetMid - _ampMid) * (targetMid > _ampMid ? 0.80 : 0.08);
+          _ampTreble += (targetTreble - _ampTreble) * (targetTreble > _ampTreble ? 0.90 : 0.12);
+        });
+      } else {
+        if (_rotationController.isAnimating) _rotationController.stop();
+
+        bool changed = false;
+        if ((_ampBass - 0.75).abs() > 0.001) { _ampBass += (0.75 - _ampBass) * 0.08; changed = true; }
+        if ((_ampMid - 0.75).abs() > 0.001) { _ampMid += (0.75 - _ampMid) * 0.08; changed = true; }
+        if ((_ampTreble - 0.70).abs() > 0.001) { _ampTreble += (0.70 - _ampTreble) * 0.08; changed = true; }
+        if (changed) setState(() {});
+      }
     });
 
     _extractColors();
@@ -549,48 +583,48 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 600),
                 opacity: provider.isPlaying ? 1.0 : 0.0,
-                child: Transform.scale(
-                  // Scale IS the amplitude — very visible pulse on every beat
-                  scale: _amp,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Blob 1: primary — wide corner swings (very spiky)
-                      _buildBlob(
-                        color: _c1.withValues(alpha: 0.70),
-                        rotation: v * tp,
-                        radius: BorderRadius.only(
-                          topLeft:     Radius.circular(widget.artSize * (0.08 + 0.42 * sin(v * tp).abs())),
-                          topRight:    Radius.circular(widget.artSize * (0.42 + 0.08 * cos(v * tp + pi / 3))),
-                          bottomLeft:  Radius.circular(widget.artSize * (0.42 + 0.08 * cos(v * tp - pi / 3))),
-                          bottomRight: Radius.circular(widget.artSize * (0.08 + 0.42 * cos(v * tp).abs())),
-                        ),
-                      ),
-                      // Blob 2: secondary — counter-rotate, offset phase
-                      _buildBlob(
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Blob 1 (Graves): Always circular, scales strongly with bass
+                    _buildBlob(
+                      color: _c1.withValues(alpha: 0.70),
+                      scale: _ampBass,
+                      rotation: v * tp * 0.5,
+                      radius: BorderRadius.circular(widget.artSize),
+                    ),
+                    // Blob 2 (Medios): Starts circular, stretches/morphs with mids
+                    Builder(builder: (context) {
+                      final defMid = (_ampMid - 0.75) * 1.5; // Deformation factor (base 0.75)
+                      return _buildBlob(
                         color: _c2.withValues(alpha: 0.60),
-                        rotation: -(v * tp * 1.5),
+                        scale: _ampMid,
+                        rotation: -(v * tp),
                         radius: BorderRadius.only(
-                          topLeft:     Radius.circular(widget.artSize * (0.42 + 0.08 * cos(v * tp + pi / 5))),
-                          topRight:    Radius.circular(widget.artSize * (0.08 + 0.42 * sin(v * tp + pi / 2).abs())),
-                          bottomLeft:  Radius.circular(widget.artSize * (0.08 + 0.42 * cos(v * tp + pi / 4).abs())),
-                          bottomRight: Radius.circular(widget.artSize * (0.42 + 0.08 * sin(v * tp + pi))),
+                          topLeft:     Radius.circular(widget.artSize * (0.5 - defMid * sin(v * tp * 2.0).abs()).clamp(0.15, 0.5)),
+                          topRight:    Radius.circular(widget.artSize * (0.5 - defMid * cos(v * tp * 2.0).abs()).clamp(0.15, 0.5)),
+                          bottomLeft:  Radius.circular(widget.artSize * (0.5 - defMid * cos(v * tp * 2.0 + pi / 4).abs()).clamp(0.15, 0.5)),
+                          bottomRight: Radius.circular(widget.artSize * (0.5 - defMid * sin(v * tp * 2.0 + pi / 4).abs()).clamp(0.15, 0.5)),
                         ),
-                      ),
-                      // Blob 3: accent — slower rotation, medium swing
-                      _buildBlob(
+                      );
+                    }),
+                    // Blob 3 (Agudos): Starts circular, becomes highly spiky and scales with treble
+                    Builder(builder: (context) {
+                      final defTreble = (_ampTreble - 0.70) * 2.5; // Sharp deformation factor (base 0.70)
+                      return _buildBlob(
                         color: _c3.withValues(alpha: 0.55),
-                        rotation: v * tp * 0.65,
+                        scale: _ampTreble,
+                        rotation: v * tp * 1.8,
                         radius: BorderRadius.only(
-                          topLeft:     Radius.circular(widget.artSize * (0.30 + 0.20 * sin(v * tp + pi / 6))),
-                          topRight:    Radius.circular(widget.artSize * (0.10 + 0.40 * cos(v * tp + pi / 6).abs())),
-                          bottomLeft:  Radius.circular(widget.artSize * (0.10 + 0.40 * sin(v * tp - pi / 6).abs())),
-                          bottomRight: Radius.circular(widget.artSize * (0.30 + 0.20 * cos(v * tp - pi / 6))),
+                          topLeft:     Radius.circular(widget.artSize * (0.5 - defTreble * sin(v * tp * 3.0).abs()).clamp(0.12, 0.5)),
+                          topRight:    Radius.circular(widget.artSize * (0.5 - defTreble * cos(v * tp * 3.0).abs()).clamp(0.12, 0.5)),
+                          bottomLeft:  Radius.circular(widget.artSize * (0.5 - defTreble * cos(v * tp * 3.0 + pi / 4).abs()).clamp(0.12, 0.5)),
+                          bottomRight: Radius.circular(widget.artSize * (0.5 - defTreble * sin(v * tp * 3.0 + pi / 4).abs()).clamp(0.12, 0.5)),
                         ),
-                      ),
-                    ],
-                  ),
+                      );
+                    }),
+                  ],
                 ),
               ),
             );
@@ -602,24 +636,28 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
 
   Widget _buildBlob({
     required Color color,
+    required double scale,
     required double rotation,
     required BorderRadius radius,
   }) {
-    return Transform.rotate(
-      angle: rotation,
-      child: Container(
-        width: widget.artSize,
-        height: widget.artSize,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: radius,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.40),
-              blurRadius: 22,
-              spreadRadius: 5,
-            ),
-          ],
+    return Transform.scale(
+      scale: scale,
+      child: Transform.rotate(
+        angle: rotation,
+        child: Container(
+          width: widget.artSize,
+          height: widget.artSize,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: radius,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.40),
+                blurRadius: 22,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
         ),
       ),
     );
