@@ -9,7 +9,14 @@ import '../widgets/artwork_widget.dart';
 import '../widgets/gradient_mask.dart';
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key});
+  final double expandPercentage;
+  final VoidCallback? onCloseRequested;
+
+  const PlayerScreen({
+    super.key,
+    this.expandPercentage = 1.0,
+    this.onCloseRequested,
+  });
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -25,6 +32,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // Dynamic banner color extracted from artwork
   Color _bannerColor = const Color(0xFFFF5722);
+  Color _bgColor = const Color(0xFF10121A);
   int? _bannerSongId;
 
   @override
@@ -39,8 +47,11 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (_flipController.value >= 0.5 && !_songChangedMidFlight) {
         _songChangedMidFlight = true;
         final provider = context.read<MusicProvider>();
-        if (_swipeDir < 0) provider.playNext();
-        else provider.playPrevious();
+        if (_swipeDir < 0) {
+          provider.playNext();
+        } else {
+          provider.playPrevious();
+        }
       }
       setState(() {});
     });
@@ -75,15 +86,14 @@ class _PlayerScreenState extends State<PlayerScreen>
           .withSaturation(hsv.saturation.clamp(0.60, 1.0))
           .withValue(hsv.value.clamp(0.70, 1.0))
           .toColor();
-      setState(() => _bannerColor = vivid);
+      setState(() {
+        _bannerColor = vivid;
+        _bgColor = raw;
+      });
     } catch (_) {}
   }
 
-  void _handleVerticalDragEnd(DragEndDetails details) {
-    if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-      Navigator.pop(context);
-    }
-  }
+  // Vertical drag is now handled by the parent overlay in HomeScreen
 
   void _handleHorizontalDragEnd(
       DragEndDetails details, MusicProvider provider) {
@@ -118,8 +128,6 @@ class _PlayerScreenState extends State<PlayerScreen>
         _updateBannerColor(song);
 
         return GestureDetector(
-          // Vertical swipe — down to close
-          onVerticalDragEnd: _handleVerticalDragEnd,
           // Horizontal swipe — prev / next
           onHorizontalDragUpdate: (details) {
             setState(() {
@@ -134,11 +142,33 @@ class _PlayerScreenState extends State<PlayerScreen>
                 _dragOffsetX = 0;
                 _isDragging = false;
               }),
-          child: Scaffold(
-            backgroundColor: const Color(0xFF10121A),
+          child: Opacity(
+            opacity: widget.expandPercentage > 0.1 
+              ? Curves.easeIn.transform((widget.expandPercentage - 0.1) / 0.9)
+              : 0.0,
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
             body: Stack(
               clipBehavior: Clip.none,
               children: [
+                // Background Gradient
+                Positioned.fill(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.easeInOut,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          _bgColor.withValues(alpha: 0.15), // Faint image color
+                          Colors.black,
+                        ],
+                        stops: const [0.0, 0.7],
+                      ),
+                    ),
+                  ),
+                ),
                 // 0. Morphing blob visualizer — aligned with artwork center
                 Positioned(
                   top: MediaQuery.of(context).size.height * 0.45 - artSize * 0.65,
@@ -187,7 +217,13 @@ class _PlayerScreenState extends State<PlayerScreen>
                                   Icons.keyboard_arrow_down_rounded,
                                   color: Colors.white,
                                   size: 32),
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () {
+                                if (widget.onCloseRequested != null) {
+                                  widget.onCloseRequested!();
+                                } else {
+                                  Navigator.pop(context);
+                                }
+                              },
                             ),
                             IconButton(
                               icon: const Icon(Icons.queue_music_rounded,
@@ -287,8 +323,9 @@ class _PlayerScreenState extends State<PlayerScreen>
                                         iconSize: 28,
                                         padding: EdgeInsets.zero,
                                         onPressed: () {
-                                          if (song != null)
+                                          if (song != null) {
                                             provider.toggleFavorite(song.id);
+                                          }
                                         },
                                       ),
                                       const Spacer(),
@@ -368,9 +405,9 @@ class _PlayerScreenState extends State<PlayerScreen>
                       ],
                     ),
                   ),
-
             ],
           ),
+        ),
         ),
         );
       },
@@ -458,9 +495,9 @@ class AudioVisualizerAura extends StatefulWidget {
 class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
     with SingleTickerProviderStateMixin {
   late AnimationController _rotationController;
-  double _ampBass = 0.75;
-  double _ampMid = 0.75;
-  double _ampTreble = 0.70;
+  double _ampBass = 0.90;
+  double _ampMid = 0.85;
+  double _ampTreble = 0.85;
   Timer? _rhythmTimer;
 
   // Colors extracted from artwork (fallback to app palette)
@@ -490,34 +527,52 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
 
         // Vincular la fase directamente a los ms de la canción para una "sincronización" determinista
         final ms = provider.currentPosition.inMilliseconds;
+        final totalMs = provider.totalDuration.inMilliseconds;
         final phase = ms / 1000.0 * pi; // Avanza PI cada segundo
         
-        // Graves (Bass): Picos fuertes basados en el tiempo de la canción
-        double bassPulse = pow(sin(phase * 1.8), 16).toDouble();
-        if (sin(phase * 0.4) < -0.3) bassPulse *= 0.1; // Descansos periódicos
-        final targetBass = 0.75 + (bassPulse * 0.55); // 0.75 (oculto) a 1.30 (muy visible)
+        // Envelope: Las canciones suelen tener silencio al principio y al final.
+        // Simulamos que no hay audio reduciendo la amplitud en los primeros 1.5s y últimos 4s.
+        double envelope = 1.0;
+        if (ms < 1500) {
+          envelope = (ms / 1500.0).clamp(0.0, 1.0);
+        } else if (totalMs > 0 && ms > totalMs - 4000) {
+          envelope = ((totalMs - ms) / 4000.0).clamp(0.0, 1.0);
+        }
+
+        // Graves (Bass): Simulador de Kick-drum de EDM a 120 BPM (~500ms por beat)
+        final beatPhase = (ms % 500) / 500.0; // Va de 0.0 a 1.0 cada medio segundo
+        // Pico muy afilado que decae exponencialmente simulando un golpe real de bombo
+        double kick = pow(1.0 - beatPhase, 5).toDouble() * envelope;
         
-        // Medios (Mids): Más constante, fluctuaciones
-        double midPulse = (sin(phase * 2.8) * 0.5 + sin(phase * 1.2) * 0.5).abs();
-        final targetMid = 0.75 + (midPulse * 0.35); // 0.75 a 1.10
+        // Introducir silencios dinámicos cada pocos compases para que no sea monótono
+        if (sin(phase * 0.5) < -0.6) kick *= 0.1;
         
-        // Agudos (Treble): Picos rápidos, caóticos y de corta duración
-        double treblePulse = pow(sin(phase * 6.7), 6).toDouble() * sin(phase * 11.3).abs();
-        if (sin(phase * 0.8) > 0.5) treblePulse *= 0.2; 
-        final targetTreble = 0.70 + (treblePulse * 0.50); // 0.70 a 1.20
+        final targetBass = 0.90 + (kick * 0.60); // 0.90 a 1.50
+        
+        // Medios (Mids): Generación de ruido pseudo-aleatorio de alta frecuencia basado en el tiempo
+        // Usamos combinaciones caóticas de ondas senoidales rápidas para simular analizador de espectro
+        double noiseMid = (sin(phase * 18.3) * 0.3 + sin(phase * 27.7) * 0.4 + sin(phase * 11.1) * 0.3).abs() * envelope;
+        final targetMid = 0.85 + (noiseMid * 0.45); // 0.85 a 1.30, vibra frenéticamente
+        
+        // Agudos (Treble): Ruido aún más rápido y punzante
+        double noiseTreble = (sin(phase * 38.1) * 0.4 + sin(phase * 52.3) * 0.3 + sin(phase * 15.5) * 0.3).abs() * envelope;
+        final targetTreble = 0.85 + (noiseTreble * 0.55); // 0.85 a 1.40, muy nervioso y explosivo
 
         setState(() {
-          _ampBass += (targetBass - _ampBass) * (targetBass > _ampBass ? 0.75 : 0.05);
-          _ampMid += (targetMid - _ampMid) * (targetMid > _ampMid ? 0.80 : 0.08);
-          _ampTreble += (targetTreble - _ampTreble) * (targetTreble > _ampTreble ? 0.90 : 0.12);
+          // Dinámica de muelle: El Bass reacciona casi instantáneo al golpe, pero tiene fricción al bajar
+          _ampBass += (targetBass - _ampBass) * (targetBass > _ampBass ? 0.85 : 0.15);
+          
+          // Mids y Treble vibran súper rápido siguiendo la señal ruidosa directamente
+          _ampMid += (targetMid - _ampMid) * 0.65;
+          _ampTreble += (targetTreble - _ampTreble) * 0.75;
         });
       } else {
         if (_rotationController.isAnimating) _rotationController.stop();
 
         bool changed = false;
-        if ((_ampBass - 0.75).abs() > 0.001) { _ampBass += (0.75 - _ampBass) * 0.08; changed = true; }
-        if ((_ampMid - 0.75).abs() > 0.001) { _ampMid += (0.75 - _ampMid) * 0.08; changed = true; }
-        if ((_ampTreble - 0.70).abs() > 0.001) { _ampTreble += (0.70 - _ampTreble) * 0.08; changed = true; }
+        if ((_ampBass - 0.90).abs() > 0.001) { _ampBass += (0.90 - _ampBass) * 0.08; changed = true; }
+        if ((_ampMid - 0.85).abs() > 0.001) { _ampMid += (0.85 - _ampMid) * 0.08; changed = true; }
+        if ((_ampTreble - 0.85).abs() > 0.001) { _ampTreble += (0.85 - _ampTreble) * 0.08; changed = true; }
         if (changed) setState(() {});
       }
     });
@@ -576,7 +631,7 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
           animation: _rotationController,
           builder: (context, _) {
             final v = _rotationController.value;
-            final tp = 2 * pi;
+            const tp = 2 * pi;
             return SizedBox(
               width: widget.artSize,
               height: widget.artSize,
@@ -589,16 +644,16 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
                   children: [
                     // Blob 1 (Graves): Always circular, scales strongly with bass
                     _buildBlob(
-                      color: _c1.withValues(alpha: 0.70),
+                      color: _c1.withValues(alpha: 0.90),
                       scale: _ampBass,
                       rotation: v * tp * 0.5,
                       radius: BorderRadius.circular(widget.artSize),
                     ),
                     // Blob 2 (Medios): Starts circular, stretches/morphs with mids
                     Builder(builder: (context) {
-                      final defMid = (_ampMid - 0.75) * 1.5; // Deformation factor (base 0.75)
+                      final defMid = (_ampMid - 0.85) * 1.5; // Deformation factor (base 0.85)
                       return _buildBlob(
-                        color: _c2.withValues(alpha: 0.60),
+                        color: _c2.withValues(alpha: 0.80),
                         scale: _ampMid,
                         rotation: -(v * tp),
                         radius: BorderRadius.only(
@@ -611,9 +666,9 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
                     }),
                     // Blob 3 (Agudos): Starts circular, becomes highly spiky and scales with treble
                     Builder(builder: (context) {
-                      final defTreble = (_ampTreble - 0.70) * 2.5; // Sharp deformation factor (base 0.70)
+                      final defTreble = (_ampTreble - 0.85) * 2.5; // Sharp deformation factor (base 0.85)
                       return _buildBlob(
-                        color: _c3.withValues(alpha: 0.55),
+                        color: _c3.withValues(alpha: 0.80),
                         scale: _ampTreble,
                         rotation: v * tp * 1.8,
                         radius: BorderRadius.only(
@@ -652,9 +707,9 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
             borderRadius: radius,
             boxShadow: [
               BoxShadow(
-                color: color.withValues(alpha: 0.40),
-                blurRadius: 22,
-                spreadRadius: 5,
+                color: color.withValues(alpha: 0.70),
+                blurRadius: 36,
+                spreadRadius: 8,
               ),
             ],
           ),

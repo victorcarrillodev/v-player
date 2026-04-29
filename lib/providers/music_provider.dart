@@ -35,7 +35,7 @@ class MusicProvider extends ChangeNotifier {
   bool _isShuffling = false;
   Color _dominantColor = const Color(0xFF6C63FF);
   Color _accentColor = const Color(0xFF03DAC6);
-  List<int> _shuffledIndices = [];
+  final List<int> _shuffledIndices = [];
   String _searchQuery = '';
 
   // Cache for artwork
@@ -83,6 +83,8 @@ class MusicProvider extends ChangeNotifier {
   Stream<Duration> get positionStream => _audioPlayer.positionStream;
   Duration get totalDuration => _totalDuration;
   RepeatMode get repeatMode => _repeatMode;
+  Stream<int?> get audioSessionIdStream => _audioPlayer.androidAudioSessionIdStream;
+  int? get audioSessionId => _audioPlayer.androidAudioSessionId;
   bool get isShuffling => _isShuffling;
   Color get dominantColor => _dominantColor;
   Color get accentColor => _accentColor;

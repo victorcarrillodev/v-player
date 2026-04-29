@@ -18,6 +18,7 @@ dependencies:
   provider: ^6.1.2
   wave_blob: ^1.0.5
   shared_preferences: ^2.2.3
+  miniplayer: any
 
 dev_dependencies:
   flutter_test:

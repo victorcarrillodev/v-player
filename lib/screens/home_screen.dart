@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
+import 'package:miniplayer/miniplayer.dart';
 import '../providers/music_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/vmusic_widgets.dart';
@@ -22,10 +24,22 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<MusicProvider>().loadSongs();
+      }
+    });
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -42,11 +56,15 @@ class _HomeScreenState extends State<HomeScreen> {
               .cast<AppSong>());
         }
 
-        return Scaffold(
-          backgroundColor: AppTheme.background,
-          body: SafeArea(
-            bottom: false,
-            child: CustomScrollView(
+        final screenHeight = MediaQuery.of(context).size.height;
+        final maxPlayerHeight = screenHeight;
+        final miniHeight = 75.0;
+
+        final mainScaffold = Scaffold(
+              backgroundColor: AppTheme.background,
+              body: SafeArea(
+                bottom: false,
+                child: CustomScrollView(
               slivers: [
                 // Custom App Bar
                 SliverToBoxAdapter(
@@ -370,93 +388,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _buildPlaylistsTab(context, provider),
                   ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                const SliverToBoxAdapter(child: SizedBox(height: 200)), // Extra space for miniplayer + tab
               ],
             ),
           ),
-          // Dynamic height based on whether a song is playing
           bottomNavigationBar: SizedBox(
-            height: provider.currentSong != null ? 145 : 95,
+            height: 95,
             child: Stack(
               children: [
-                // Mini Player (Only shown when a song is active)
-                if (provider.currentSong != null)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () => _openPlayer(context),
-                      onVerticalDragEnd: (details) {
-                        // Swipe up (velocity negative) → open player
-                        if (details.primaryVelocity != null &&
-                            details.primaryVelocity! < -200) {
-                          _openPlayer(context);
-                        }
-                      },
-                      child: Container(
-                        height: 75,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        decoration: const BoxDecoration(
-                          gradient: AppTheme.primaryGradient,
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: ArtworkWidget(
-                                song: provider.currentSong,
-                                size: 52,
-                                borderRadius: 0,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    provider.currentSong?.title ?? '',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 15,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    provider.currentSong?.artist ?? '',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.8),
-                                      fontSize: 13,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: Icon(
-                                provider.isPlaying
-                                    ? Icons.pause_circle_outline_rounded
-                                    : Icons.play_circle_outline_rounded,
-                                color: Colors.white,
-                                size: 38,
-                              ),
-                              onPressed: provider.togglePlay,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                // Tab Navigator (Always shown at bottom)
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -469,32 +408,95 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+        );
 
-
-
+        // Custom Scaffold wrapper to hold Miniplayer above BottomNavigationBar seamlessly
+        return Stack(
+          children: [
+            mainScaffold,
+            if (provider.currentSong != null)
+              Miniplayer(
+                minHeight: 85, // Height of the miniplayer
+                maxHeight: screenHeight,
+                builder: (height, percentage) {
+                  if (percentage > 0.05) {
+                    return PlayerScreen(expandPercentage: percentage);
+                  }
+                  return _buildMiniPlayerRow(provider, percentage);
+                },
+              ),
+          ],
         );
       },
     );
   }
 
-  void _openPlayer(BuildContext context) {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const PlayerScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(0.0, 1.0);
-          const end = Offset.zero;
-          const curve = Curves.easeOutQuart;
-          final tween =
-              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          return SlideTransition(
-              position: animation.drive(tween), child: child);
-        },
+  Widget _buildMiniPlayerRow(MusicProvider provider, double percentage) {
+    return Opacity(
+      opacity: (1.0 - percentage * 5).clamp(0.0, 1.0),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        decoration: const BoxDecoration(
+          gradient: AppTheme.primaryGradient,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: ArtworkWidget(
+                song: provider.currentSong,
+                size: 52,
+                borderRadius: 0,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    provider.currentSong?.title ?? '',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    provider.currentSong?.artist ?? '',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                provider.isPlaying
+                    ? Icons.pause_circle_outline_rounded
+                    : Icons.play_circle_outline_rounded,
+                color: Colors.white,
+                size: 38,
+              ),
+              onPressed: provider.togglePlay,
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  // Removed _openPlayer since we use the interactive overlay now
 
   Widget _buildMusicTab(BuildContext context, MusicProvider provider) {
     if (provider.songs.isEmpty) {

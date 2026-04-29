@@ -66,6 +66,7 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+
     }
 
     private fun querySongs(): List<Map<String, Any?>> {

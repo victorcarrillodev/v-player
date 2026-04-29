@@ -13,7 +13,6 @@ Future<void> main() async {
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.example.v_player.channel.audio',
     androidNotificationChannelName: 'VPlayer - Reproducción de audio',
-    androidNotificationOngoing: true,
     androidNotificationIcon: 'mipmap/ic_launcher',
     // Mantiene el servicio en primer plano incluso en pausa para evitar que 
     // el sistema operativo (o el usuario al cerrar la app) mate la notificación.
