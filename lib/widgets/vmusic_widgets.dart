@@ -68,7 +68,7 @@ class ActionGrid extends StatelessWidget {
             crossAxisCount: 2,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 6,
+            childAspectRatio: 4,
             children: [
               _ActionButton(
                 label: 'Aleatorio',
@@ -958,39 +958,38 @@ class _TabItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: isSelected ? AppTheme.primaryGradient : null,
-                color: isSelected ? null : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : const Color(0xFF8E92A3),
-                size: 26,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: isSelected ? AppTheme.primaryGradient : null,
+              color: isSelected ? null : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
             ),
-            if (isSelected && label != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                label!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF8E92A3),
+              size: 26,
+            ),
+          ),
+          if (isSelected && label != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              label!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
-            ],
+              maxLines: 1,
+              overflow: TextOverflow.visible,
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

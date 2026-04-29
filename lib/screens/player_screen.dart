@@ -40,7 +40,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     super.initState();
     _flipController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 350),
     );
     _flipController.addListener(() {
       // At the halfway point (art is edge-on) swap the song
@@ -142,19 +142,15 @@ class _PlayerScreenState extends State<PlayerScreen>
                 _dragOffsetX = 0;
                 _isDragging = false;
               }),
-          child: Opacity(
-            opacity: widget.expandPercentage > 0.1 
-              ? Curves.easeIn.transform((widget.expandPercentage - 0.1) / 0.9)
-              : 0.0,
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
+          child: Scaffold(
+            backgroundColor: _bgColor,
             body: Stack(
               clipBehavior: Clip.none,
               children: [
                 // Background Gradient
                 Positioned.fill(
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 700),
+                    duration: const Duration(milliseconds: 400),
                     curve: Curves.easeInOut,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -181,7 +177,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   top: 0,
                   left: w / 2 - artSize / 2,
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 700),
+                    duration: const Duration(milliseconds: 400),
                     curve: Curves.easeInOut,
                     width: artSize,
                     height: MediaQuery.of(context).size.height * 0.45 + artSize / 2,
@@ -240,22 +236,35 @@ class _PlayerScreenState extends State<PlayerScreen>
                               artSize / 2 -
                               100),
 
-                      // Circular Album Art — flip animation on song change
-                      Builder(builder: (_) {
-                        final p = _flipController.value;
-                        // First half: 0→π/2 (disappear), second half: π/2→0 (appear)
-                        final rotY = p < 0.5 ? p * 2 * (pi / 2) : (1.0 - p) * 2 * (pi / 2);
-                        // Slide in the swipe direction then back
-                        final slideX = _flipController.isAnimating
-                            ? _swipeDir * 55.0 * sin(p * pi)
-                            : _dragOffsetX.clamp(-60.0, 60.0);
-                        return Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()
-                            ..setEntry(3, 2, 0.001)
-                            ..translate(slideX, 0.0, 0.0)
-                            ..rotateY(rotY),
+                      // Circular Album Art — smooth slide transition on song change
+                      Transform.translate(
+                        offset: Offset(_dragOffsetX.clamp(-60.0, 60.0), 0.0),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 350),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) {
+                            final isIncoming = child.key == ValueKey(song?.id);
+                            final offset = isIncoming
+                                ? Tween<Offset>(
+                                    begin: Offset(_swipeDir > 0 ? 1.5 : -1.5, 0.0),
+                                    end: Offset.zero,
+                                  ).animate(animation)
+                                : Tween<Offset>(
+                                    begin: Offset(_swipeDir > 0 ? -1.5 : 1.5, 0.0),
+                                    end: Offset.zero,
+                                  ).animate(animation);
+
+                            return SlideTransition(
+                              position: offset,
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                            );
+                          },
                           child: SizedBox(
+                            key: ValueKey(song?.id),
                             width: artSize,
                             height: artSize,
                             child: Center(
@@ -269,8 +278,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                               ),
                             ),
                           ),
-                        );
-                      }),
+                        ),
+                      ),
 
                         Expanded(
                           child: SingleChildScrollView(
@@ -280,28 +289,48 @@ class _PlayerScreenState extends State<PlayerScreen>
                                 const SizedBox(height: 36),
 
                                 // Song Info
-                                Text(
-                                  song?.title ?? 'Blinding Lights',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w800,
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 350),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  transitionBuilder: (child, animation) {
+                                    final isIncoming = child.key == ValueKey(song?.id);
+                                    final offset = isIncoming
+                                        ? Tween<Offset>(begin: Offset(_swipeDir > 0 ? 0.8 : -0.8, 0.0), end: Offset.zero).animate(animation)
+                                        : Tween<Offset>(begin: Offset(_swipeDir > 0 ? -0.8 : 0.8, 0.0), end: Offset.zero).animate(animation);
+                                    return SlideTransition(
+                                      position: offset,
+                                      child: FadeTransition(opacity: animation, child: child),
+                                    );
+                                  },
+                                  child: Column(
+                                    key: ValueKey(song?.id),
+                                    children: [
+                                      Text(
+                                        song?.title ?? 'Blinding Lights',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        song?.artist ?? 'The Weekend',
+                                        style: const TextStyle(
+                                          color: Color(0xFF8E92A3),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  song?.artist ?? 'The Weekend',
-                                  style: const TextStyle(
-                                    color: Color(0xFF8E92A3),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
                                 ),
 
                                 const SizedBox(height: 20),
@@ -407,7 +436,6 @@ class _PlayerScreenState extends State<PlayerScreen>
                   ),
             ],
           ),
-        ),
         ),
         );
       },
@@ -525,44 +553,66 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
       if (isPlaying) {
         if (!_rotationController.isAnimating) _rotationController.repeat();
 
-        // Vincular la fase directamente a los ms de la canción para una "sincronización" determinista
-        final ms = provider.currentPosition.inMilliseconds;
-        final totalMs = provider.totalDuration.inMilliseconds;
-        final phase = ms / 1000.0 * pi; // Avanza PI cada segundo
-        
-        // Envelope: Las canciones suelen tener silencio al principio y al final.
-        // Simulamos que no hay audio reduciendo la amplitud en los primeros 1.5s y últimos 4s.
-        double envelope = 1.0;
-        if (ms < 1500) {
-          envelope = (ms / 1500.0).clamp(0.0, 1.0);
-        } else if (totalMs > 0 && ms > totalMs - 4000) {
-          envelope = ((totalMs - ms) / 4000.0).clamp(0.0, 1.0);
+        // Obtener el arreglo de volumen (waveforms)
+        List<double>? waveform;
+        if (provider.currentSong != null) {
+          waveform = provider.waveforms[provider.currentSong!.id];
         }
 
-        // Graves (Bass): Simulador de Kick-drum de EDM a 120 BPM (~500ms por beat)
-        final beatPhase = (ms % 500) / 500.0; // Va de 0.0 a 1.0 cada medio segundo
-        // Pico muy afilado que decae exponencialmente simulando un golpe real de bombo
-        double kick = pow(1.0 - beatPhase, 5).toDouble() * envelope;
+        // Vincular la fase directamente a los ms de la canción
+        final ms = provider.currentPosition.inMilliseconds;
+        final totalMs = provider.totalDuration.inMilliseconds;
+        final phase = ms / 1000.0 * pi;
         
-        // Introducir silencios dinámicos cada pocos compases para que no sea monótono
-        if (sin(phase * 0.5) < -0.6) kick *= 0.1;
+        double localAmplitude = 0.0;
         
-        final targetBass = 0.90 + (kick * 0.60); // 0.90 a 1.50
+        // Si tenemos datos del waveform de la canción, mapeamos el tiempo al índice con interpolación
+        if (waveform != null && waveform.isNotEmpty && totalMs > 0) {
+           final pct = (ms / totalMs).clamp(0.0, 1.0);
+           final double exactIndex = pct * (waveform.length - 1);
+           final int lowerIndex = exactIndex.floor();
+           final int upperIndex = exactIndex.ceil();
+           final double fraction = exactIndex - lowerIndex;
+           
+           // Lerp (interpolación lineal) entre el punto anterior y el siguiente
+           final double lowerAmp = waveform[lowerIndex];
+           final double upperAmp = waveform[upperIndex];
+           
+           localAmplitude = lowerAmp + (upperAmp - lowerAmp) * fraction;
+           
+           // Hacer los picos más agresivos y los silencios más marcados usando una curva
+           localAmplitude = pow(localAmplitude, 1.5).toDouble();
+           
+           // Puerta de ruido para eliminar vibraciones en el silencio absoluto
+           if (localAmplitude < 0.05) localAmplitude = 0.0; 
+        } else {
+           // Fallback si la canción aún se está analizando: usar el envelope simulado
+           double envelope = 1.0;
+           if (ms < 1500) {
+             envelope = (ms / 1500.0).clamp(0.0, 1.0);
+           } else if (totalMs > 0 && ms > totalMs - 4000) {
+             envelope = ((totalMs - ms) / 4000.0).clamp(0.0, 1.0);
+           }
+           final beatPhase = (ms % 500) / 500.0;
+           localAmplitude = pow(1.0 - beatPhase, 5).toDouble() * envelope;
+           if (sin(phase * 0.5) < -0.6) localAmplitude *= 0.1;
+        }
         
-        // Medios (Mids): Generación de ruido pseudo-aleatorio de alta frecuencia basado en el tiempo
-        // Usamos combinaciones caóticas de ondas senoidales rápidas para simular analizador de espectro
-        double noiseMid = (sin(phase * 18.3) * 0.3 + sin(phase * 27.7) * 0.4 + sin(phase * 11.1) * 0.3).abs() * envelope;
-        final targetMid = 0.85 + (noiseMid * 0.45); // 0.85 a 1.30, vibra frenéticamente
+        // Usamos la amplitud real de la canción para calcular los objetivos
+        // Amplificamos la señal para que se vea bien en los blobs
+        final targetBass = 0.90 + (localAmplitude * 0.55); // 0.90 a 1.45
         
-        // Agudos (Treble): Ruido aún más rápido y punzante
-        double noiseTreble = (sin(phase * 38.1) * 0.4 + sin(phase * 52.3) * 0.3 + sin(phase * 15.5) * 0.3).abs() * envelope;
-        final targetTreble = 0.85 + (noiseTreble * 0.55); // 0.85 a 1.40, muy nervioso y explosivo
+        // Para medios y agudos añadimos una fracción de ruido para simular dispersión de frecuencia, 
+        // pero multiplicada fuertemente por la amplitud real para que no haya movimiento en silencios
+        double noiseMid = (sin(phase * 18.3) * 0.3 + sin(phase * 27.7) * 0.4 + sin(phase * 11.1) * 0.3).abs() * localAmplitude;
+        final targetMid = 0.85 + (localAmplitude * 0.2) + (noiseMid * 0.3); 
+        
+        double noiseTreble = (sin(phase * 38.1) * 0.4 + sin(phase * 52.3) * 0.3 + sin(phase * 15.5) * 0.3).abs() * localAmplitude;
+        final targetTreble = 0.85 + (localAmplitude * 0.15) + (noiseTreble * 0.4);
 
         setState(() {
-          // Dinámica de muelle: El Bass reacciona casi instantáneo al golpe, pero tiene fricción al bajar
+          // Dinámica de muelle
           _ampBass += (targetBass - _ampBass) * (targetBass > _ampBass ? 0.85 : 0.15);
-          
-          // Mids y Treble vibran súper rápido siguiendo la señal ruidosa directamente
           _ampMid += (targetMid - _ampMid) * 0.65;
           _ampTreble += (targetTreble - _ampTreble) * 0.75;
         });

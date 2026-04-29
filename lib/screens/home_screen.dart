@@ -25,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  final ValueNotifier<double> _playerExpandProgress = ValueNotifier(180.0);
+  final MiniplayerController _miniplayerController = MiniplayerController();
 
   @override
   void initState() {
@@ -40,6 +42,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _searchController.dispose();
     _searchFocus.dispose();
+    _playerExpandProgress.dispose();
+    _miniplayerController.dispose();
     super.dispose();
   }
 
@@ -83,12 +87,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: TextField(
                                     controller: _searchController,
                                     autofocus: true,
+                                    textAlign: TextAlign.center,
+                                    textAlignVertical: TextAlignVertical.center,
                                     style: const TextStyle(color: Colors.white),
                                     decoration: InputDecoration(
                                       hintText: 'Buscar...',
                                       hintStyle: const TextStyle(color: Colors.white54),
                                       border: InputBorder.none,
-                                      icon: const Icon(Icons.search_rounded, color: Colors.white54),
+                                      prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54),
                                       suffixIcon: IconButton(
                                         icon: const Icon(Icons.close_rounded, color: Colors.white54),
                                         onPressed: () {
@@ -349,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 borderRadius: BorderRadius.circular(100),
                               ),
                               child: ElevatedButton.icon(
-                                onPressed: provider.loadSongs,
+                                onPressed: () => provider.loadSongs(force: true),
                                 icon: const Icon(Icons.refresh_rounded),
                                 label: const Text('Refrescar biblioteca'),
                                 style: ElevatedButton.styleFrom(
@@ -383,48 +389,92 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _buildArtistsTab(context, provider),
                   )
                 else if (_selectedIndex == 4)
-                  SliverFillRemaining(
-                    hasScrollBody: true,
-                    child: _buildPlaylistsTab(context, provider),
-                  ),
+                  ..._buildPlaylistsTab(context, provider),
 
                 const SliverToBoxAdapter(child: SizedBox(height: 200)), // Extra space for miniplayer + tab
               ],
             ),
           ),
-          bottomNavigationBar: SizedBox(
-            height: 95,
-            child: Stack(
-              children: [
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: VMusicTabBar(
-                    selectedIndex: _selectedIndex,
-                    onTap: (index) => setState(() => _selectedIndex = index),
-                  ),
-                ),
-              ],
-            ),
-          ),
         );
 
-        // Custom Scaffold wrapper to hold Miniplayer above BottomNavigationBar seamlessly
         return Stack(
           children: [
             mainScaffold,
+            
             if (provider.currentSong != null)
               Miniplayer(
-                minHeight: 85, // Height of the miniplayer
+                controller: _miniplayerController,
+                minHeight: 180, // 85 (player) + 95 (tab bar)
                 maxHeight: screenHeight,
+                backgroundColor: Colors.transparent, // Fixes black screen on drag
+                valueNotifier: _playerExpandProgress,
                 builder: (height, percentage) {
-                  if (percentage > 0.05) {
-                    return PlayerScreen(expandPercentage: percentage);
-                  }
-                  return _buildMiniPlayerRow(provider, percentage);
+                  final isMini = percentage < 0.2;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Full Player
+                      Opacity(
+                        opacity: (percentage * 3).clamp(0.0, 1.0), // Quick fade to avoid black flash
+                        child: OverflowBox(
+                          minWidth: MediaQuery.of(context).size.width,
+                          maxWidth: MediaQuery.of(context).size.width,
+                          minHeight: screenHeight,
+                          maxHeight: screenHeight,
+                          alignment: Alignment.bottomCenter,
+                          child: IgnorePointer(
+                            ignoring: isMini,
+                            child: PlayerScreen(
+                              expandPercentage: percentage,
+                              onCloseRequested: () {
+                                _miniplayerController.animateToHeight(state: PanelState.MIN);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      // Mini Player
+                      if (isMini)
+                        Opacity(
+                          opacity: (1.0 - percentage * 5).clamp(0.0, 1.0),
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
+                              height: 180,
+                              child: _buildMiniPlayerRow(provider, percentage),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
                 },
               ),
+
+            // Tab Bar at the bottom (rendered ON TOP of the miniplayer background)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 95,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _playerExpandProgress,
+                builder: (context, height, child) {
+                  final percentage = ((height - 180.0) / (screenHeight - 180.0)).clamp(0.0, 1.0);
+                  return Transform.translate(
+                    offset: Offset(0, 95 * percentage),
+                    child: Opacity(
+                      opacity: (1.0 - percentage * 5).clamp(0.0, 1.0),
+                      child: child,
+                    ),
+                  );
+                },
+                child: VMusicTabBar(
+                  selectedIndex: _selectedIndex,
+                  onTap: (index) => setState(() => _selectedIndex = index),
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -435,14 +485,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return Opacity(
       opacity: (1.0 - percentage * 5).clamp(0.0, 1.0),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        height: 180,
         decoration: const BoxDecoration(
           gradient: AppTheme.primaryGradient,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            height: 85,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: ArtworkWidget(
@@ -492,6 +547,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+      ),
       ),
     );
   }
@@ -591,11 +648,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPlaylistsTab(BuildContext context, MusicProvider provider) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
+  List<Widget> _buildPlaylistsTab(BuildContext context, MusicProvider provider) {
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -611,12 +667,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        Expanded(
-          child: ListView.builder(
-            clipBehavior: Clip.none,
-            padding: const EdgeInsets.only(top: 8, bottom: 100),
-            itemCount: provider.playlists.length,
-            itemBuilder: (context, index) {
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.only(top: 8, bottom: 100),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
               final playlist = provider.playlists[index];
               final playlistSongs = playlist.songIds
                   .map((id) => provider.songs.cast<AppSong?>().firstWhere((s) => s?.id == id, orElse: () => null))

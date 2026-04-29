@@ -19,6 +19,7 @@ dependencies:
   wave_blob: ^1.0.5
   shared_preferences: ^2.2.3
   miniplayer: any
+  audio_waveforms: ^1.0.5
 
 dev_dependencies:
   flutter_test:

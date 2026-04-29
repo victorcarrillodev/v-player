@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/song_model.dart';
 import '../models/playlist_model.dart';
+import 'package:audio_waveforms/audio_waveforms.dart';
 
 enum RepeatMode { off, one, all }
 
@@ -38,12 +39,14 @@ class MusicProvider extends ChangeNotifier {
   final List<int> _shuffledIndices = [];
   String _searchQuery = '';
 
-  // Cache for artwork
+  // Cache for artwork and waveforms
   final Map<int, Uint8List?> _artworkCache = {};
+  final Map<int, List<double>> _waveforms = {};
 
   List<AppSong> get songs => _searchQuery.isEmpty ? _songs : _filteredSongs;
   List<AppSong> get currentQueue => _currentQueue.isEmpty ? songs : _currentQueue;
   List<AppPlaylist> get playlists => _playlists;
+  Map<int, List<double>> get waveforms => _waveforms;
 
   AppPlaylist get historyPlaylist => AppPlaylist(id: 'history', name: 'Historial', songIds: _history);
   
@@ -150,6 +153,7 @@ class MusicProvider extends ChangeNotifier {
         _playCounts[_currentSong!.id.toString()] = (_playCounts[_currentSong!.id.toString()] ?? 0) + 1;
         _saveStats();
         _updateThemeColors(_currentSong!);
+        _extractWaveform(_currentSong!);
         notifyListeners();
       }
     });
@@ -187,7 +191,11 @@ class MusicProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadSongs() async {
+  Future<void> loadSongs({bool force = false}) async {
+    if (!force && _songs.isNotEmpty) {
+      return;
+    }
+    
     _isLoading = true;
     notifyListeners();
 
@@ -203,6 +211,7 @@ class MusicProvider extends ChangeNotifier {
           artist: map['artist'] as String? ?? 'Unknown Artist',
           album: map['album'] as String? ?? 'Unknown Album',
           uri: map['uri'] as String?,
+          data: map['data'] as String?,
           duration: map['duration'] as int? ?? 0,
           albumId: map['albumId'] as int? ?? 0,
         );
@@ -321,8 +330,7 @@ class MusicProvider extends ChangeNotifier {
          queueChanged = true;
       }
 
-      _isLoading = true;
-      notifyListeners();
+
 
       if (queueChanged || _audioPlayer.audioSource == null) {
         final audioSource = ConcatenatingAudioSource(
@@ -354,12 +362,8 @@ class MusicProvider extends ChangeNotifier {
       }
 
       await _audioPlayer.play();
-      _isLoading = false;
-      notifyListeners();
     } catch (e) {
       debugPrint('Error playing song: $e');
-      _isLoading = false;
-      notifyListeners();
     }
   }
 
@@ -471,6 +475,42 @@ class MusicProvider extends ChangeNotifier {
     } catch (e) {
       _artworkCache[id] = null;
       return null;
+    }
+  }
+
+  Future<void> _extractWaveform(AppSong song) async {
+    if (_waveforms.containsKey(song.id)) return;
+    if (song.data == null || song.data!.isEmpty) return;
+
+    try {
+      final controller = PlayerController();
+      // Calculate samples to get roughly 20-30 frames per second.
+      // 1 sample every 40 milliseconds (25 fps).
+      final int desiredSamples = (song.duration > 0) ? (song.duration ~/ 40) : 4096;
+      
+      final data = await controller.extractWaveformData(
+        path: song.data!,
+        noOfSamples: desiredSamples,
+      );
+      
+      if (data.isNotEmpty) {
+        // Normalize the waveform so the highest peak is exactly 1.0
+        double maxAmplitude = 0.0;
+        for (var amp in data) {
+          if (amp.abs() > maxAmplitude) maxAmplitude = amp.abs();
+        }
+        
+        List<double> normalizedData = data;
+        if (maxAmplitude > 0.0) {
+           normalizedData = data.map((amp) => (amp.abs() / maxAmplitude)).toList();
+        }
+        
+        _waveforms[song.id] = normalizedData;
+        notifyListeners();
+      }
+      controller.dispose();
+    } catch (e) {
+      debugPrint('Error extracting waveform: $e');
     }
   }
 

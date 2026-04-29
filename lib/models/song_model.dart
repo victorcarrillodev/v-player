@@ -4,6 +4,7 @@ class AppSong {
   final String artist;
   final String album;
   final String? uri;
+  final String? data; // Physical file path
   final int duration;
   final int albumId;
 
@@ -13,6 +14,7 @@ class AppSong {
     required this.artist,
     required this.album,
     this.uri,
+    this.data,
     required this.duration,
     required this.albumId,
   });
