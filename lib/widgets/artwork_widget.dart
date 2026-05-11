@@ -24,19 +24,19 @@ class ArtworkWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (song == null) return _buildContent(null, null);
+    if (song == null) return _buildContent(context, null, null);
 
     final provider = context.read<MusicProvider>();
 
     return FutureBuilder<Uint8List?>(
       future: provider.getArtwork(song!.id),
       builder: (context, snap) {
-        return _buildContent(snap.data, snap.connectionState);
+        return _buildContent(context, snap.data, snap.connectionState);
       },
     );
   }
 
-  Widget _buildContent(Uint8List? data, ConnectionState? state) {
+  Widget _buildContent(BuildContext context, Uint8List? data, ConnectionState? state) {
     final hasArt = data != null && data.isNotEmpty;
 
     final inner = ClipRRect(
@@ -61,7 +61,7 @@ class ArtworkWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.3),
+              color: context.appColors.primary.withValues(alpha: 0.3),
               blurRadius: 30,
               spreadRadius: 5,
             ),

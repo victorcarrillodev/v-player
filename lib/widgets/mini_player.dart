@@ -37,14 +37,14 @@ class MiniPlayer extends StatelessWidget {
             margin: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              color: AppTheme.surfaceVariant,
+              color: context.appColors.surfaceVariant,
               border: Border.all(
-                color: AppTheme.primary.withValues(alpha: 0.2),
+                color: context.appColors.primary.withValues(alpha: 0.2),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.2),
+                  color: context.appColors.primary.withValues(alpha: 0.2),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -95,8 +95,8 @@ class MiniPlayer extends StatelessWidget {
                           children: [
                             Text(
                               song.title,
-                              style: const TextStyle(
-                                color: AppTheme.onSurface,
+                              style: TextStyle(
+                                color: context.appColors.onSurface,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
                               ),
@@ -106,8 +106,8 @@ class MiniPlayer extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               song.artist,
-                              style: const TextStyle(
-                                color: AppTheme.onSurfaceMuted,
+                              style: TextStyle(
+                                color: context.appColors.onSurfaceMuted,
                                 fontSize: 12,
                               ),
                               maxLines: 1,
@@ -149,7 +149,7 @@ class _ControlButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
-      icon: Icon(icon, size: 26, color: AppTheme.onSurface),
+      icon: Icon(icon, size: 26, color: context.appColors.onSurface),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(),
     );
@@ -171,12 +171,12 @@ class _PlayPauseButton extends StatelessWidget {
         height: 42,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [AppTheme.primary, AppTheme.accent],
+          gradient: LinearGradient(
+            colors: [context.appColors.primary, context.appColors.accent],
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.4),
+              color: context.appColors.primary.withValues(alpha: 0.4),
               blurRadius: 10,
             ),
           ],

@@ -25,7 +25,7 @@ class PlaylistScreen extends StatelessWidget {
         final bool isCustomPlaylist = int.tryParse(playlist.id) != null;
 
         return Scaffold(
-          backgroundColor: AppTheme.background,
+          backgroundColor: context.appColors.background,
           appBar: AppBar(
             title: Text(playlist.name),
             actions: [
@@ -64,7 +64,7 @@ class PlaylistScreen extends StatelessWidget {
                       },
                       trailingAction: isCustomPlaylist ? PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
-                        color: AppTheme.surfaceVariant,
+                        color: context.appColors.surfaceVariant,
                         onSelected: (value) {
                           if (value == 'remove') {
                             provider.removeSongFromPlaylist(playlist.id, song.id);
@@ -95,7 +95,7 @@ class PlaylistScreen extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: AppTheme.surface,
+              backgroundColor: context.appColors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -115,7 +115,7 @@ class PlaylistScreen extends StatelessWidget {
                       title: Text(song.title, style: const TextStyle(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(song.artist, style: const TextStyle(color: Colors.white54), maxLines: 1, overflow: TextOverflow.ellipsis),
                       value: isSelected,
-                      activeColor: AppTheme.primary,
+                      activeColor: context.appColors.primary,
                       checkColor: Colors.white,
                       side: const BorderSide(color: Colors.white54),
                       onChanged: (val) {
@@ -137,7 +137,7 @@ class PlaylistScreen extends StatelessWidget {
                   child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
                 ),
                 Container(
-                  decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(100)),
+                  decoration: BoxDecoration(gradient: context.appColors.primaryGradient, borderRadius: BorderRadius.circular(100)),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent),
                     onPressed: () {

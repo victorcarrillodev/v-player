@@ -1,50 +1,99 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+
+class AppColors {
+  final Color background;
+  final Color surface;
+  final Color surfaceVariant;
+  final Color primary;
+  final Color accent;
+  final Color onSurface;
+  final Color onSurfaceMuted;
+  final Color cardGlow;
+  final LinearGradient primaryGradient;
+  final bool isNeon;
+  final Color? neonGlow;
+
+  AppColors({
+    required this.background,
+    required this.surface,
+    required this.surfaceVariant,
+    required this.primary,
+    required this.accent,
+    required this.onSurface,
+    required this.onSurfaceMuted,
+    required this.cardGlow,
+    required this.primaryGradient,
+    this.isNeon = false,
+    this.neonGlow,
+  });
+}
+
+extension ThemeContext on BuildContext {
+  AppColors get appColors => watch<ThemeProvider>().currentColors;
+  ThemeProvider get themeProvider => read<ThemeProvider>();
+}
 
 class AppTheme {
-  static const Color background = Color(0xFF141723);
-  static const Color surface = Color(0xFF1C1E2D);
-  static const Color surfaceVariant = Color(0xFF26293D);
-  static const Color primary = Color(0xFFFF5722);
-  static const Color accent = Color(0xFFFFB300); // Amber 600, much more yellow-orange to make gradient prominent
-  static const Color onSurface = Color(0xFFFFFFFF);
-  static const Color onSurfaceMuted = Color(0xFF8E92A3);
-  static const Color cardGlow = Color(0x30FF5722);
-
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primary, accent],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static ThemeData get theme {
+  static ThemeData getTheme(AppColors colors, bool isDarkMode, bool animationsEnabled) {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: background,
-      colorScheme: const ColorScheme.dark(
-        primary: primary,
-        secondary: accent,
-        surface: surface,
+      brightness: isDarkMode ? Brightness.dark : Brightness.light,
+      scaffoldBackgroundColor: colors.background,
+      colorScheme: (isDarkMode ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
+        primary: colors.primary,
+        secondary: colors.accent,
+        surface: colors.surface,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onSurface: onSurface,
+        onSurface: colors.onSurface,
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+      textTheme: GoogleFonts.interTextTheme(
+        isDarkMode ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
+      ).apply(
+        bodyColor: colors.onSurface,
+        displayColor: colors.onSurface,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.inter(
-          color: onSurface,
+          color: colors.onSurface,
           fontSize: 18,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
         ),
-        iconTheme: const IconThemeData(color: onSurface),
+        iconTheme: IconThemeData(color: colors.onSurface),
       ),
-      iconTheme: const IconThemeData(color: onSurface),
+      iconTheme: IconThemeData(color: colors.onSurface),
+      pageTransitionsTheme: animationsEnabled 
+          ? const PageTransitionsTheme()
+          : const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+                TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+                TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
+                TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
+                TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
+              },
+            ),
     );
   }
 }
 
+class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
+  const NoAnimationPageTransitionsBuilder();
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
+}

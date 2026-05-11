@@ -1,0 +1,28 @@
+00:00 +0: loading /home/dev-pro/Escritorio/v-player/test/equalizer_test.dart
+00:00 +0: EqualizerScreen loads without crashing
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+pumpAndSettle timed out
+
+When the exception was thrown, this was the stack:
+#0      WidgetTester.pumpAndSettle.<anonymous closure> (package:flutter_test/src/widget_tester.dart:717:11)
+<asynchronous suspension>
+#1      TestAsyncUtils.guard.<anonymous closure> (package:flutter_test/src/test_async_utils.dart:130:27)
+<asynchronous suspension>
+#2      main.<anonymous closure> (file:///home/dev-pro/Escritorio/v-player/test/equalizer_test.dart:26:5)
+<asynchronous suspension>
+#3      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#4      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  EqualizerScreen loads without crashing
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:05 +0 -1: EqualizerScreen loads without crashing [E]
+  Test failed. See exception logs above.
+  The test description was: EqualizerScreen loads without crashing
+  
+00:05 +0 -1: Some tests failed.

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'appearance_settings_screen.dart';
+import 'player_settings_screen.dart';
+import 'equalizer_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -8,9 +10,9 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.appColors.background,
       appBar: AppBar(
-        backgroundColor: AppTheme.background,
+        backgroundColor: context.appColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
@@ -51,14 +53,28 @@ class SettingsScreen extends StatelessWidget {
                   color: Colors.blueAccent,
                   title: 'Reproductor',
                   subtitle: 'Ajusta las opciones de reproducción',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PlayerSettingsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildSettingsTile(
                   icon: Icons.equalizer_rounded,
                   color: Colors.greenAccent,
                   title: 'Ecualizador',
                   subtitle: 'Ajusta el audio a tu gusto',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EqualizerScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildSettingsTile(
                   icon: Icons.dashboard_customize_rounded,

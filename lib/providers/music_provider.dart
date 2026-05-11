@@ -18,7 +18,9 @@ enum RepeatMode { off, one, all }
 class MusicProvider extends ChangeNotifier {
   static const _channel = MethodChannel('com.example.v_player/media');
 
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final AndroidEqualizer _equalizer = AndroidEqualizer();
+  final AndroidLoudnessEnhancer _loudnessEnhancer = AndroidLoudnessEnhancer();
+  late final AudioPlayer _audioPlayer;
 
   List<AppSong> _songs = [];
   List<AppSong> _filteredSongs = [];
@@ -38,6 +40,7 @@ class MusicProvider extends ChangeNotifier {
   Color _dominantColor = const Color(0xFF6C63FF);
   Color _accentColor = const Color(0xFF03DAC6);
   String _searchQuery = '';
+  bool _isDummySource = false;
 
   // Cache for artwork and waveforms
   final Map<int, Uint8List?> _artworkCache = {};
@@ -91,8 +94,16 @@ class MusicProvider extends ChangeNotifier {
   bool get isShuffling => _isShuffling;
   Color get dominantColor => _dominantColor;
   Color get accentColor => _accentColor;
+  AndroidEqualizer get equalizer => _equalizer;
+  AndroidLoudnessEnhancer get loudnessEnhancer => _loudnessEnhancer;
 
   MusicProvider() {
+    _audioPlayer = AudioPlayer(
+      audioPipeline: AudioPipeline(androidAudioEffects: [
+        _equalizer,
+        _loudnessEnhancer,
+      ]),
+    );
     _init();
   }
 
@@ -111,6 +122,25 @@ class MusicProvider extends ChangeNotifier {
     if (_hasPermission) {
       await loadSongs();
       _currentQueue = _songs; // Default queue
+      
+      // Initialize Android audio session immediately to wake up the Equalizer
+      if (_currentQueue.isNotEmpty && Platform.isAndroid) {
+        _isDummySource = true;
+        try {
+          await _audioPlayer.setAudioSource(
+            ConcatenatingAudioSource(children: [
+              AudioSource.uri(
+                Uri.parse(_currentQueue.first.uri ?? ''),
+                tag: MediaItem(
+                  id: _currentQueue.first.id.toString(),
+                  title: 'Initializing Engine',
+                  artist: 'System',
+                ),
+              )
+            ]),
+          );
+        } catch (_) {}
+      }
     }
 
     // Handle audio focus changes (phone calls, other apps, etc.)
@@ -349,7 +379,8 @@ class MusicProvider extends ChangeNotifier {
 
 
 
-      if (queueChanged || _audioPlayer.audioSource == null) {
+      if (queueChanged || _audioPlayer.audioSource == null || _isDummySource) {
+        _isDummySource = false;
         final audioSource = ConcatenatingAudioSource(
           children: _currentQueue.map((s) {
             // Use the standard album art content URI that Android's media notification can resolve

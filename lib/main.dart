@@ -5,6 +5,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:home_widget/home_widget.dart';
 import 'providers/music_provider.dart';
+import 'providers/theme_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 
@@ -27,12 +28,6 @@ Future<void> main() async {
   await session.configure(const AudioSessionConfiguration.music());
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: AppTheme.background,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
   runApp(const VPlayerApp());
 }
 
@@ -41,13 +36,30 @@ class VPlayerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MusicProvider(),
-      child: MaterialApp(
-        title: 'VPlayer',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.theme,
-        home: const HomeScreen(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => MusicProvider()),
+      ],
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          final colors = themeProvider.currentColors;
+          
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: themeProvider.isDarkMode ? Brightness.light : Brightness.dark,
+              systemNavigationBarColor: colors.background,
+              systemNavigationBarIconBrightness: themeProvider.isDarkMode ? Brightness.light : Brightness.dark,
+            ),
+            child: MaterialApp(
+              title: 'VPlayer',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.getTheme(colors, themeProvider.isDarkMode, themeProvider.animationsEnabled),
+              home: const HomeScreen(),
+            ),
+          );
+        },
       ),
     );
   }

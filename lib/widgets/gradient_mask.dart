@@ -7,9 +7,10 @@ class GradientMask extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gradient = context.appColors.primaryGradient;
     return ShaderMask(
       blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(
+      shaderCallback: (bounds) => gradient.createShader(
         Rect.fromLTWH(0, 0, bounds.width, bounds.height),
       ),
       child: child,

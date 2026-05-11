@@ -32,12 +32,12 @@ class SongTile extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: isCurrentSong ? null : AppTheme.surface,
+            color: isCurrentSong ? null : context.appColors.surface,
             gradient: isCurrentSong
                 ? LinearGradient(
                     colors: [
-                      AppTheme.primary.withValues(alpha: 0.15),
-                      AppTheme.accent.withValues(alpha: 0.15)
+                      context.appColors.primary.withValues(alpha: 0.15),
+                      context.appColors.accent.withValues(alpha: 0.15)
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -45,14 +45,14 @@ class SongTile extends StatelessWidget {
                 : null,
             border: Border.all(
               color: isCurrentSong
-                  ? AppTheme.primary.withValues(alpha: 0.4)
+                  ? context.appColors.primary.withValues(alpha: 0.4)
                   : Colors.transparent,
               width: 1,
             ),
             boxShadow: isCurrentSong
                 ? [
                     BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.15),
+                      color: context.appColors.primary.withValues(alpha: 0.15),
                       blurRadius: 12,
                       spreadRadius: 2,
                     )
@@ -98,8 +98,8 @@ class SongTile extends StatelessWidget {
                 )
               : Text(
                   song.title,
-                  style: const TextStyle(
-                    color: AppTheme.onSurface,
+                  style: TextStyle(
+                    color: context.appColors.onSurface,
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -108,8 +108,8 @@ class SongTile extends StatelessWidget {
                 ),
             subtitle: Text(
               '${song.artist} • ${song.album}',
-              style: const TextStyle(
-                color: AppTheme.onSurfaceMuted,
+              style: TextStyle(
+                color: context.appColors.onSurfaceMuted,
                 fontSize: 12,
               ),
               maxLines: 1,
@@ -131,8 +131,8 @@ class SongTile extends StatelessWidget {
                       )
                     : Text(
                         song.durationFormatted,
-                        style: const TextStyle(
-                          color: AppTheme.onSurfaceMuted,
+                        style: TextStyle(
+                          color: context.appColors.onSurfaceMuted,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -156,7 +156,7 @@ class SongTile extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
+      backgroundColor: context.appColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -185,7 +185,7 @@ class SongTile extends StatelessWidget {
               ),
               const Divider(color: Colors.white24, height: 1),
               ListTile(
-                leading: Icon(isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: isFav ? AppTheme.primary : Colors.white),
+                leading: Icon(isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: isFav ? context.appColors.primary : Colors.white),
                 title: Text(isFav ? 'Quitar de favoritos' : 'Marcar como favorito', style: const TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(context);
@@ -228,7 +228,7 @@ class SongTile extends StatelessWidget {
   void _showAddToPlaylistDialog(BuildContext context, MusicProvider provider, AppSong song) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surface,
+      backgroundColor: context.appColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -247,7 +247,7 @@ class SongTile extends StatelessWidget {
                   leading: Container(
                     width: 40,
                     height: 40,
-                    decoration: const BoxDecoration(gradient: AppTheme.primaryGradient, shape: BoxShape.circle),
+                    decoration: BoxDecoration(gradient: context.appColors.primaryGradient, shape: BoxShape.circle),
                     child: const Icon(Icons.add_rounded, color: Colors.white),
                   ),
                   title: const Text('Nueva Playlist', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -260,7 +260,7 @@ class SongTile extends StatelessWidget {
                   leading: Container(
                     width: 40,
                     height: 40,
-                    decoration: const BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: context.appColors.surfaceVariant, shape: BoxShape.circle),
                     child: const Icon(Icons.queue_music_rounded, color: Colors.white54),
                   ),
                   title: Text(p.name, style: const TextStyle(color: Colors.white)),
@@ -283,7 +283,7 @@ class SongTile extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: AppTheme.surface,
+          backgroundColor: context.appColors.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Eliminar canción', style: TextStyle(color: Colors.white)),
           content: Text('¿Estás seguro de que deseas eliminar "${song.title}" del dispositivo? Esta acción no se puede deshacer.', style: const TextStyle(color: Colors.white54)),
@@ -334,15 +334,15 @@ class SongTile extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: AppTheme.surface,
+          backgroundColor: context.appColors.surface,
           title: const Text('Crear y añadir', style: TextStyle(color: Colors.white)),
           content: TextField(
             autofocus: true,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Nombre de la nueva playlist',
-              hintStyle: TextStyle(color: Colors.white54),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primary)),
+              hintStyle: const TextStyle(color: Colors.white54),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.appColors.primary)),
             ),
             onChanged: (val) => folderName = val,
           ),
@@ -352,7 +352,7 @@ class SongTile extends StatelessWidget {
               child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
             ),
             Container(
-              decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(gradient: context.appColors.primaryGradient, borderRadius: BorderRadius.circular(100)),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent),
                 onPressed: () {
@@ -420,7 +420,7 @@ class _MiniEqualizerState extends State<_MiniEqualizer>
             width: 4,
             height: 4 + _controllers[i].value * 18,
             decoration: BoxDecoration(
-              color: AppTheme.accent,
+              color: context.appColors.accent,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

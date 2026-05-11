@@ -40,8 +40,8 @@ class VMusicSectionHeader extends StatelessWidget {
               onTap: onMorePressed,
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
+                decoration: BoxDecoration(
+                  gradient: context.appColors.primaryGradient,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 24),
@@ -130,7 +130,7 @@ class _ActionButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
+          gradient: context.appColors.primaryGradient,
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -500,7 +500,7 @@ class _MixedSuggestionsState extends State<MixedSuggestions> {
       onTap: () => _playShuffledQueue(context),
       child: Container(
         decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
+          gradient: context.appColors.primaryGradient,
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Column(
@@ -755,7 +755,7 @@ class PlaylistCard extends StatelessWidget {
               width: orangeWidth,
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
+                  gradient: context.appColors.primaryGradient,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -966,7 +966,7 @@ class _TabItem extends StatelessWidget {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              gradient: isSelected ? AppTheme.primaryGradient : null,
+              gradient: isSelected ? context.appColors.primaryGradient : null,
               color: isSelected ? null : Colors.transparent,
               borderRadius: BorderRadius.circular(16),
             ),

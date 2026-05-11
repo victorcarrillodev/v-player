@@ -1,0 +1,17 @@
+Analyzing v-player...                                           
+
+  error • Invalid constant value • lib/screens/appearance_settings_screen.dart:78:18 • invalid_constant
+  error • Invalid constant value • lib/screens/home_screen.dart:487:21 • invalid_constant
+  error • Invalid constant value • lib/screens/home_screen.dart:763:91 • invalid_constant
+  error • Undefined name 'context' • lib/widgets/artwork_widget.dart:64:22 • undefined_identifier
+  error • Invalid constant value • lib/widgets/mini_player.dart:99:40 • invalid_constant
+  error • Invalid constant value • lib/widgets/mini_player.dart:110:40 • invalid_constant
+  error • Invalid constant value • lib/widgets/mini_player.dart:175:22 • invalid_constant
+  error • Invalid constant value • lib/widgets/song_tile.dart:102:28 • invalid_constant
+  error • Invalid constant value • lib/widgets/song_tile.dart:112:24 • invalid_constant
+  error • Invalid constant value • lib/widgets/song_tile.dart:135:34 • invalid_constant
+  error • Invalid constant value • lib/widgets/song_tile.dart:250:63 • invalid_constant
+  error • Invalid constant value • lib/widgets/song_tile.dart:263:60 • invalid_constant
+  error • Invalid constant value • lib/widgets/song_tile.dart:345:81 • invalid_constant
+  error • Invalid constant value • lib/widgets/vmusic_widgets.dart:44:29 • invalid_constant
+

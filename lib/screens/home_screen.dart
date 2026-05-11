@@ -62,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final screenHeight = MediaQuery.of(context).size.height;
 
         final mainScaffold = Scaffold(
-              backgroundColor: AppTheme.background,
+              backgroundColor: context.appColors.background,
               body: SafeArea(
                 bottom: false,
                 child: CustomScrollView(
@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Expanded(
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: AppTheme.surfaceVariant,
+                                    color: context.appColors.surfaceVariant,
                                     borderRadius: BorderRadius.circular(100),
                                   ),
                                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -269,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 16),
                                 Container(
                                   decoration: BoxDecoration(
-                                    gradient: AppTheme.primaryGradient,
+                                    gradient: context.appColors.primaryGradient,
                                     borderRadius: BorderRadius.circular(100),
                                   ),
                                   child: ElevatedButton.icon(
@@ -348,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 16),
                             Container(
                               decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
+                                gradient: context.appColors.primaryGradient,
                                 borderRadius: BorderRadius.circular(100),
                               ),
                               child: ElevatedButton.icon(
@@ -483,9 +483,9 @@ class _HomeScreenState extends State<HomeScreen> {
       opacity: (1.0 - percentage * 5).clamp(0.0, 1.0),
       child: Container(
         height: 180,
-        decoration: const BoxDecoration(
-          gradient: AppTheme.primaryGradient,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          gradient: context.appColors.primaryGradient,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Align(
           alignment: Alignment.topCenter,
@@ -629,7 +629,7 @@ class _HomeScreenState extends State<HomeScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           leading: CircleAvatar(
             radius: 30,
-            backgroundColor: AppTheme.surface,
+            backgroundColor: context.appColors.surface,
             child: ClipOval(
                child: ArtworkWidget(song: firstSong, size: 60, borderRadius: 0),
             ),
@@ -699,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.all(4),
                           child: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 20),
                         ),
-                        color: AppTheme.surfaceVariant,
+                        color: context.appColors.surfaceVariant,
                         elevation: 8,
                         onSelected: (value) {
                           if (value == 'delete') {
@@ -740,7 +740,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: AppTheme.surface,
+              backgroundColor: context.appColors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -757,10 +757,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: TextField(
                         autofocus: true,
                         style: const TextStyle(color: Colors.white, fontSize: 18),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Nombre de la playlist',
-                          hintStyle: TextStyle(color: Colors.white54),
-                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primary, width: 2)),
+                          hintStyle: const TextStyle(color: Colors.white54),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: context.appColors.primary, width: 2)),
                         ),
                         onChanged: (val) => folderName = val,
                       ),
@@ -788,7 +788,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             title: Text(song.title, style: const TextStyle(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                             subtitle: Text(song.artist, style: const TextStyle(color: Colors.white54), maxLines: 1, overflow: TextOverflow.ellipsis),
                             value: isSelected,
-                            activeColor: AppTheme.primary,
+                            activeColor: context.appColors.primary,
                             checkColor: Colors.white,
                             side: const BorderSide(color: Colors.white54),
                             onChanged: (val) {
@@ -813,7 +813,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
                 ),
                 Container(
-                  decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(100)),
+                  decoration: BoxDecoration(gradient: context.appColors.primaryGradient, borderRadius: BorderRadius.circular(100)),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent),
                     onPressed: () {
