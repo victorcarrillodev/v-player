@@ -895,45 +895,45 @@ class VMusicTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 85,
+      height: 105,
       decoration: const BoxDecoration(
         color: Color(0xFF0F111A),
         borderRadius: BorderRadius.only(topLeft: Radius.circular(24.0), topRight: Radius.circular(24.0))
       ),
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _TabItem(
+          Expanded(child: _TabItem(
             icon: Icons.person_outline_rounded,
-            label: 'Para ti',
+            label: 'Para tí',
             isSelected: selectedIndex == 0,
             onTap: () => onTap(0),
-          ),
-          _TabItem(
+          )),
+          Expanded(child: _TabItem(
             icon: Icons.music_note_rounded,
             label: 'Música',
             isSelected: selectedIndex == 1,
             onTap: () => onTap(1),
-          ),
-          _TabItem(
+          )),
+          Expanded(child: _TabItem(
             icon: Icons.album_outlined,
             label: 'Álbumes',
             isSelected: selectedIndex == 2,
             onTap: () => onTap(2),
-          ),
-          _TabItem(
+          )),
+          Expanded(child: _TabItem(
             icon: Icons.person_pin_rounded,
             label: 'Artistas',
             isSelected: selectedIndex == 3,
             onTap: () => onTap(3),
-          ),
-          _TabItem(
+          )),
+          Expanded(child: _TabItem(
             icon: Icons.playlist_play_rounded,
             label: 'Playlists',
             isSelected: selectedIndex == 4,
             onTap: () => onTap(4),
-          ),
+          )),
         ],
       ),
     );
@@ -964,7 +964,7 @@ class _TabItem extends StatelessWidget {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               gradient: isSelected ? AppTheme.primaryGradient : null,
               color: isSelected ? null : Colors.transparent,
@@ -973,20 +973,30 @@ class _TabItem extends StatelessWidget {
             child: Icon(
               icon,
               color: isSelected ? Colors.white : const Color(0xFF8E92A3),
-              size: 26,
+              size: 24,
             ),
           ),
           if (isSelected && label != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              label!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 2),
+            SizedBox(
+              height: 12,
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.visible,
             ),
           ],
         ],

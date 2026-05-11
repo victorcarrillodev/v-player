@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'appearance_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -36,7 +37,14 @@ class SettingsScreen extends StatelessWidget {
                   color: Colors.purpleAccent,
                   title: 'Apariencia',
                   subtitle: 'Cambia el tema, colores y estilo',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AppearanceSettingsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildSettingsTile(
                   icon: Icons.play_circle_filled_rounded,
@@ -90,10 +98,10 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 32, top: 16),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 32, top: 16),
             child: Column(
-              children: const [
+              children: [
                 Text(
                   'Version 1.0.0',
                   style: TextStyle(color: Colors.white54, fontSize: 13),

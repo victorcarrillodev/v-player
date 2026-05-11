@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 import '../models/song_model.dart';
@@ -25,7 +25,7 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen>
     with TickerProviderStateMixin {
   double _dragOffsetX = 0;
-  bool _isDragging = false;
+
   int _swipeDir = 0;
   bool _songChangedMidFlight = false;
   late AnimationController _flipController;
@@ -98,7 +98,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _handleHorizontalDragEnd(
       DragEndDetails details, MusicProvider provider) {
     if (details.primaryVelocity == null) {
-      setState(() { _dragOffsetX = 0; _isDragging = false; });
+      setState(() { _dragOffsetX = 0; });
       return;
     }
     if (details.primaryVelocity! < -300) {
@@ -112,7 +112,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
     setState(() {
       _dragOffsetX = 0;
-      _isDragging = false;
     });
   }
 
@@ -132,7 +131,6 @@ class _PlayerScreenState extends State<PlayerScreen>
           onHorizontalDragUpdate: (details) {
             setState(() {
               _dragOffsetX += details.delta.dx;
-              _isDragging = true;
             });
           },
           onHorizontalDragEnd: (details) =>
@@ -140,7 +138,6 @@ class _PlayerScreenState extends State<PlayerScreen>
           onHorizontalDragCancel: () =>
               setState(() {
                 _dragOffsetX = 0;
-                _isDragging = false;
               }),
           child: Scaffold(
             backgroundColor: _bgColor,

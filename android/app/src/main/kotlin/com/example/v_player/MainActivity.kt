@@ -63,6 +63,33 @@ class MainActivity : AudioServiceActivity() {
                         }
                     }
                 }
+                "deleteSong" -> {
+                    val uriString = call.argument<String>("uri") ?: run {
+                        result.error("INVALID_ARGS", "Missing uri", null)
+                        return@setMethodCallHandler
+                    }
+                    val uri = Uri.parse(uriString)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val deletedRows = contentResolver.delete(uri, null, null)
+                            withContext(Dispatchers.Main) {
+                                if (deletedRows > 0) {
+                                    result.success(true)
+                                } else {
+                                    result.error("DELETE_FAILED", "Could not find file in MediaStore", null)
+                                }
+                            }
+                        } catch (e: SecurityException) {
+                            withContext(Dispatchers.Main) {
+                                result.error("SECURITY_EXCEPTION", e.message, null)
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                result.error("DELETE_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

@@ -1,4 +1,4 @@
-
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +8,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:home_widget/home_widget.dart';
 import '../models/song_model.dart';
 import '../models/playlist_model.dart';
 import 'package:audio_waveforms/audio_waveforms.dart';
@@ -36,7 +37,6 @@ class MusicProvider extends ChangeNotifier {
   bool _isShuffling = false;
   Color _dominantColor = const Color(0xFF6C63FF);
   Color _accentColor = const Color(0xFF03DAC6);
-  final List<int> _shuffledIndices = [];
   String _searchQuery = '';
 
   // Cache for artwork and waveforms
@@ -102,7 +102,12 @@ class MusicProvider extends ChangeNotifier {
 
     await _loadStats();
     await _loadPlaylists();
-    await _requestPermissions();
+    
+    // Only check permissions here, don't request them yet
+    bool audioGranted = await Permission.audio.isGranted;
+    bool storageGranted = await Permission.storage.isGranted;
+    _hasPermission = audioGranted || storageGranted;
+    
     if (_hasPermission) {
       await loadSongs();
       _currentQueue = _songs; // Default queue
@@ -140,6 +145,7 @@ class MusicProvider extends ChangeNotifier {
 
     _audioPlayer.playerStateStream.listen((state) {
       _isPlaying = state.playing;
+      _updateWidgetUI();
       notifyListeners();
     });
 
@@ -154,6 +160,7 @@ class MusicProvider extends ChangeNotifier {
         _saveStats();
         _updateThemeColors(_currentSong!);
         _extractWaveform(_currentSong!);
+        _updateWidgetUI();
         notifyListeners();
       }
     });
@@ -192,6 +199,16 @@ class MusicProvider extends ChangeNotifier {
   }
 
   Future<void> loadSongs({bool force = false}) async {
+    if (!_hasPermission) {
+      await _requestPermissions();
+    }
+    
+    if (!_hasPermission) {
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
     if (!force && _songs.isNotEmpty) {
       return;
     }
@@ -401,6 +418,102 @@ class MusicProvider extends ChangeNotifier {
     await _audioPlayer.seekToNext();
   }
 
+  void queueNext(AppSong song) {
+    if (_currentQueue.isEmpty) {
+      _currentQueue = [song];
+      playSong(song, 0);
+    } else {
+      final insertIndex = _currentIndex + 1;
+      _currentQueue.insert(insertIndex, song);
+      if (_audioPlayer.audioSource is ConcatenatingAudioSource) {
+        final source = _audioPlayer.audioSource as ConcatenatingAudioSource;
+        final audioSource = AudioSource.uri(
+          Uri.parse(song.uri ?? ''),
+          tag: MediaItem(
+            id: song.id.toString(),
+            album: song.album,
+            title: song.title,
+            artist: song.artist,
+            duration: Duration(milliseconds: song.duration),
+            artUri: Uri.parse('content://media/external/audio/albumart/${song.albumId}'),
+            extras: {'albumId': song.albumId},
+          ),
+        );
+        source.insert(insertIndex, audioSource);
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteSong(AppSong song) async {
+    // Intentar borrar primero usando dart:io
+    bool deleted = false;
+    
+    if (song.data != null && song.data!.isNotEmpty) {
+      final file = File(song.data!);
+      if (file.existsSync()) {
+        try {
+          file.deleteSync();
+          deleted = true;
+        } catch (e) {
+          // Si falla, probablemente sea Android 11+ y necesitamos manageExternalStorage
+          if (await Permission.manageExternalStorage.isDenied) {
+            final status = await Permission.manageExternalStorage.request();
+            if (status.isGranted) {
+              try {
+                file.deleteSync();
+                deleted = true;
+              } catch (e2) {
+                // If it still fails, fallback to native
+              }
+            }
+          }
+        }
+      } else {
+        // file doesn't exist, maybe it was already deleted natively or externally
+        deleted = true; 
+      }
+    }
+
+    if (!deleted) {
+      // Fallback a Native ContentResolver si dart:io falla o no es accesible
+      try {
+        if (song.uri != null && song.uri!.isNotEmpty) {
+          final result = await _channel.invokeMethod('deleteSong', {'uri': song.uri});
+          if (result == true) deleted = true;
+        }
+      } on PlatformException catch (e) {
+        if (e.code == 'SECURITY_EXCEPTION') {
+          throw Exception('Permiso denegado por el sistema Android para borrar este archivo. En Android 11+, ve a Configuración y otorga el permiso de "Acceso a todos los archivos" a la app.');
+        }
+        throw Exception(e.message ?? 'Error desconocido al borrar');
+      }
+    }
+
+    if (!deleted) {
+      throw Exception('No se pudo encontrar el archivo en el almacenamiento del sistema o no hay permisos suficientes para borrarlo.');
+    }
+
+    _songs.removeWhere((s) => s.id == song.id);
+    _filteredSongs.removeWhere((s) => s.id == song.id);
+    for (var p in _playlists) {
+      p.songIds.remove(song.id);
+    }
+    _savePlaylists();
+    
+    if (_currentQueue.contains(song)) {
+       final idx = _currentQueue.indexOf(song);
+       _currentQueue.removeAt(idx);
+       if (_audioPlayer.audioSource is ConcatenatingAudioSource) {
+          final source = _audioPlayer.audioSource as ConcatenatingAudioSource;
+          if (idx < source.length) {
+             source.removeAt(idx);
+          }
+       }
+    }
+    notifyListeners();
+  }
+
   Future<void> playPrevious() async {
     if (_currentPosition.inSeconds > 3) {
       await _audioPlayer.seek(Duration.zero);
@@ -518,5 +631,12 @@ class MusicProvider extends ChangeNotifier {
   void dispose() {
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  void _updateWidgetUI() {
+    HomeWidget.saveWidgetData<String>('title', _currentSong?.title ?? 'Not playing');
+    HomeWidget.saveWidgetData<String>('artist', _currentSong?.artist ?? 'Unknown Artist');
+    HomeWidget.saveWidgetData<bool>('isPlaying', _isPlaying);
+    HomeWidget.updateWidget(androidName: 'MusicWidgetProvider');
   }
 }

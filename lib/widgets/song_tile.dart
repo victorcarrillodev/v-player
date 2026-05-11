@@ -1,8 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
 import '../models/song_model.dart';
-import '../models/playlist_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/artwork_widget.dart';
 import '../widgets/gradient_mask.dart';
@@ -138,41 +138,191 @@ class SongTile extends StatelessWidget {
                         ),
                       ),
                 const SizedBox(width: 8),
-                PopupMenuButton<AppPlaylist>(
+                IconButton(
                   icon: const Icon(Icons.more_vert_rounded, color: Colors.white54, size: 20),
-                  color: AppTheme.surfaceVariant,
-                  tooltip: 'Añadir a playlist',
-                  onSelected: (AppPlaylist? playlist) {
-                    if (playlist == null) return;
-                    if (playlist.id == 'create_new') {
-                      _showCreateAndAddDialog(context, provider, song);
-                      return;
-                    }
-                    provider.addSongToPlaylist(playlist.id, song.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Añadida a ${playlist.name}')),
-                    );
-                  },
-                  itemBuilder: (context) {
-                    final items = provider.playlists.map((p) {
-                      return PopupMenuItem<AppPlaylist>(
-                        value: p,
-                        child: Text(p.name, style: const TextStyle(color: Colors.white)),
-                      );
-                    }).toList();
-                    items.add(
-                      PopupMenuItem<AppPlaylist>(
-                        value: AppPlaylist(id: 'create_new', name: '+ Crear nueva playlist', songIds: []),
-                        child: const GradientMask(child: Text('+ Crear nueva', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                      ),
-                    );
-                    return items;
-                  },
+                  onPressed: () => _showSongOptions(context, provider, song),
                 ),
               ],
             ),
             onTap: onTap ?? () => provider.playSong(song, index),
           ),
+        );
+      },
+    );
+  }
+
+  void _showSongOptions(BuildContext context, MusicProvider provider, AppSong song) {
+    final isFav = provider.isFavorite(song.id);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    ArtworkWidget(song: song, size: 48, borderRadius: 8),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(song.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(song.artist, style: const TextStyle(color: Colors.white54, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.white24, height: 1),
+              ListTile(
+                leading: Icon(isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: isFav ? AppTheme.primary : Colors.white),
+                title: Text(isFav ? 'Quitar de favoritos' : 'Marcar como favorito', style: const TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  provider.toggleFavorite(song.id);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isFav ? 'Quitado de favoritos' : 'Añadido a favoritos')));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.playlist_add_rounded, color: Colors.white),
+                title: const Text('Agregar a una lista', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddToPlaylistDialog(context, provider, song);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.queue_music_rounded, color: Colors.white),
+                title: const Text('Reproducir siguiente', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  provider.queueNext(song);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Añadido para reproducir siguiente')));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                title: const Text('Eliminar del dispositivo', style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirmDialog(context, provider, song);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddToPlaylistDialog(BuildContext context, MusicProvider provider, AppSong song) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Añadir a playlist', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                const Divider(color: Colors.white24, height: 1),
+                ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(gradient: AppTheme.primaryGradient, shape: BoxShape.circle),
+                    child: const Icon(Icons.add_rounded, color: Colors.white),
+                  ),
+                  title: const Text('Nueva Playlist', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showCreateAndAddDialog(context, provider, song);
+                  },
+                ),
+                ...provider.playlists.where((p) => p.id != 'favorites' && p.id != 'history' && p.id != 'latest' && p.id != 'most_played').map((p) => ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(color: AppTheme.surfaceVariant, shape: BoxShape.circle),
+                    child: const Icon(Icons.queue_music_rounded, color: Colors.white54),
+                  ),
+                  title: Text(p.name, style: const TextStyle(color: Colors.white)),
+                  onTap: () {
+                    provider.addSongToPlaylist(p.id, song.id);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Añadida a ${p.name}')));
+                  },
+                )),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmDialog(BuildContext context, MusicProvider provider, AppSong song) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Eliminar canción', style: TextStyle(color: Colors.white)),
+          content: Text('¿Estás seguro de que deseas eliminar "${song.title}" del dispositivo? Esta acción no se puede deshacer.', style: const TextStyle(color: Colors.white54)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            Container(
+              decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(100)),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  try {
+                    await provider.deleteSong(song);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Canción eliminada'),
+                        behavior: SnackBarBehavior.floating,
+                        margin: EdgeInsets.only(bottom: 95, left: 16, right: 16),
+                      ));
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(e.toString()),
+                        backgroundColor: Colors.redAccent,
+                        behavior: SnackBarBehavior.floating,
+                        margin: const EdgeInsets.only(bottom: 95, left: 16, right: 16),
+                        duration: const Duration(seconds: 4),
+                      ));
+                    }
+                  }
+                },
+                child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
         );
       },
     );

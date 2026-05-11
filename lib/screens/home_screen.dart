@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:miniplayer/miniplayer.dart';
 import '../providers/music_provider.dart';
@@ -61,8 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final screenHeight = MediaQuery.of(context).size.height;
-        final maxPlayerHeight = screenHeight;
-        final miniHeight = 75.0;
 
         final mainScaffold = Scaffold(
               backgroundColor: AppTheme.background,
@@ -456,13 +453,13 @@ class _HomeScreenState extends State<HomeScreen> {
               left: 0,
               right: 0,
               bottom: 0,
-              height: 95,
+              height: 105,
               child: ValueListenableBuilder<double>(
                 valueListenable: _playerExpandProgress,
                 builder: (context, height, child) {
                   final percentage = ((height - 180.0) / (screenHeight - 180.0)).clamp(0.0, 1.0);
                   return Transform.translate(
-                    offset: Offset(0, 95 * percentage),
+                    offset: Offset(0, 105 * percentage),
                     child: Opacity(
                       opacity: (1.0 - percentage * 5).clamp(0.0, 1.0),
                       child: child,
@@ -726,10 +723,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               );
             },
+            childCount: provider.playlists.length,
           ),
         ),
-      ],
-    );
+      ),
+    ];
   }
 
   void _showCreatePlaylistDialog(BuildContext context, MusicProvider provider) {
