@@ -22,12 +22,14 @@ class MusicProvider extends ChangeNotifier {
   final AndroidLoudnessEnhancer _loudnessEnhancer = AndroidLoudnessEnhancer();
   late final AudioPlayer _audioPlayer;
 
+  List<AppSong> _allSongs = [];
   List<AppSong> _songs = [];
   List<AppSong> _filteredSongs = [];
   List<AppSong> _currentQueue = [];
   List<AppPlaylist> _playlists = [];
   List<int> _history = [];
   Map<String, int> _playCounts = {};
+  List<String> _ignoredFolders = [];
   AppSong? _currentSong;
   int _currentIndex = -1;
   bool _isPlaying = false;
@@ -47,9 +49,11 @@ class MusicProvider extends ChangeNotifier {
   final Map<int, List<double>> _waveforms = {};
 
   List<AppSong> get songs => _searchQuery.isEmpty ? _songs : _filteredSongs;
+  List<AppSong> get allFoundSongs => _allSongs;
   List<AppSong> get currentQueue => _currentQueue.isEmpty ? songs : _currentQueue;
   List<AppPlaylist> get playlists => _playlists;
   Map<int, List<double>> get waveforms => _waveforms;
+  List<String> get ignoredFolders => _ignoredFolders;
 
   AppPlaylist get historyPlaylist => AppPlaylist(id: 'history', name: 'Historial', songIds: _history);
   
@@ -113,6 +117,7 @@ class MusicProvider extends ChangeNotifier {
 
     await _loadStats();
     await _loadPlaylists();
+    await _loadIgnoredFolders();
     
     // Only check permissions here, don't request them yet
     bool audioGranted = await Permission.audio.isGranted;
@@ -250,7 +255,7 @@ class MusicProvider extends ChangeNotifier {
       final List<dynamic> result =
           await _channel.invokeMethod('querySongs') as List<dynamic>;
 
-      _songs = result.map((raw) {
+      _allSongs = result.map((raw) {
         final map = Map<String, dynamic>.from(raw as Map);
         return AppSong(
           id: map['id'] as int,
@@ -263,12 +268,52 @@ class MusicProvider extends ChangeNotifier {
           albumId: map['albumId'] as int? ?? 0,
         );
       }).toList();
+      _applyFolderFilter();
     } catch (e) {
       debugPrint('Error loading songs: $e');
     }
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  void _applyFolderFilter() {
+    if (_ignoredFolders.isEmpty) {
+      _songs = List.from(_allSongs);
+    } else {
+      _songs = _allSongs.where((song) {
+        if (song.data == null) return true; // Si no tiene ruta, no la ignoramos
+        final path = song.data!;
+        // Verificar si la ruta del archivo empieza con alguna de las carpetas ignoradas
+        for (String folder in _ignoredFolders) {
+          if (path.startsWith(folder)) return false; // Ignorada
+        }
+        return true;
+      }).toList();
+    }
+    
+    // Actualizar también la lista filtrada por búsqueda si hay una búsqueda activa
+    if (_searchQuery.isNotEmpty) {
+      search(_searchQuery);
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadIgnoredFolders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString('ignored_folders') ?? '[]';
+    _ignoredFolders = List<String>.from(jsonDecode(jsonStr));
+  }
+
+  Future<void> toggleIgnoredFolder(String folderPath) async {
+    if (_ignoredFolders.contains(folderPath)) {
+      _ignoredFolders.remove(folderPath);
+    } else {
+      _ignoredFolders.add(folderPath);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('ignored_folders', jsonEncode(_ignoredFolders));
+    _applyFolderFilter();
   }
 
   Future<void> _loadStats() async {

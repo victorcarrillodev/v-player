@@ -117,28 +117,24 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MusicProvider>(
-      builder: (context, provider, _) {
-        final song = provider.currentSong;
-        final w = MediaQuery.of(context).size.width;
+    final song = context.select<MusicProvider, AppSong?>((p) => p.currentSong);
+    final provider = context.read<MusicProvider>();
+    final w = MediaQuery.of(context).size.width;
         final artSize = w * 0.65;
 
         // Trigger color extraction when song changes (async, idempotent)
         _updateBannerColor(song);
 
         return GestureDetector(
-          // Horizontal swipe — prev / next
-          onHorizontalDragUpdate: (details) {
-            setState(() {
-              _dragOffsetX += details.delta.dx;
-            });
+          onVerticalDragEnd: (details) {
+            if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+              if (widget.onCloseRequested != null) {
+                widget.onCloseRequested!();
+              } else {
+                Navigator.pop(context);
+              }
+            }
           },
-          onHorizontalDragEnd: (details) =>
-              _handleHorizontalDragEnd(details, provider),
-          onHorizontalDragCancel: () =>
-              setState(() {
-                _dragOffsetX = 0;
-              }),
           child: Scaffold(
             backgroundColor: _bgColor,
             body: Stack(
@@ -166,7 +162,9 @@ class _PlayerScreenState extends State<PlayerScreen>
                 Positioned(
                   top: MediaQuery.of(context).size.height * 0.45 - artSize * 0.65,
                   left: w / 2 - artSize * 0.65,
-                  child: AudioVisualizerAura(artSize: artSize * 1.3, song: song),
+                  child: RepaintBoundary(
+                    child: AudioVisualizerAura(artSize: artSize * 1.3, song: song),
+                  ),
                 ),
 
                 // 1. Dynamic-color top banner
@@ -335,50 +333,54 @@ class _PlayerScreenState extends State<PlayerScreen>
                                 // Top Action Row
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 32),
-                                  child: Row(
-                                    children: [
-                                      IconButton(
-                                        icon: song != null &&
-                                                provider.isFavorite(song.id)
-                                            ? const GradientMask(
-                                                child: Icon(Icons.favorite_rounded,
-                                                    color: Colors.white))
-                                            : const Icon(
-                                                Icons.favorite_border_rounded,
-                                                color: Color(0xFF6E7287)),
-                                        iconSize: 28,
-                                        padding: EdgeInsets.zero,
-                                        onPressed: () {
-                                          if (song != null) {
-                                            provider.toggleFavorite(song.id);
-                                          }
-                                        },
-                                      ),
-                                      const Spacer(),
-                                      GestureDetector(
-                                        onTap: provider.toggleRepeat,
-                                        child: Icon(
-                                          provider.repeatMode == RepeatMode.one
-                                              ? Icons.repeat_one_rounded
-                                              : Icons.repeat_rounded,
-                                          color: provider.repeatMode != RepeatMode.off
-                                              ? Colors.white
-                                              : const Color(0xFF6E7287),
-                                          size: 24,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 24),
-                                      GestureDetector(
-                                        onTap: provider.toggleShuffle,
-                                        child: Icon(
-                                          Icons.shuffle_rounded,
-                                          color: provider.isShuffling
-                                              ? Colors.white
-                                              : const Color(0xFF6E7287),
-                                          size: 24,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Consumer<MusicProvider>(
+                                    builder: (context, actionProvider, _) {
+                                      return Row(
+                                        children: [
+                                          IconButton(
+                                            icon: song != null &&
+                                                    actionProvider.isFavorite(song.id)
+                                                ? const GradientMask(
+                                                    child: Icon(Icons.favorite_rounded,
+                                                        color: Colors.white))
+                                                : const Icon(
+                                                    Icons.favorite_border_rounded,
+                                                    color: Color(0xFF6E7287)),
+                                            iconSize: 28,
+                                            padding: EdgeInsets.zero,
+                                            onPressed: () {
+                                              if (song != null) {
+                                                actionProvider.toggleFavorite(song.id);
+                                              }
+                                            },
+                                          ),
+                                          const Spacer(),
+                                          GestureDetector(
+                                            onTap: actionProvider.toggleRepeat,
+                                            child: Icon(
+                                              actionProvider.repeatMode == RepeatMode.one
+                                                  ? Icons.repeat_one_rounded
+                                                  : Icons.repeat_rounded,
+                                              color: actionProvider.repeatMode != RepeatMode.off
+                                                  ? Colors.white
+                                                  : const Color(0xFF6E7287),
+                                              size: 24,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 24),
+                                          GestureDetector(
+                                            onTap: actionProvider.toggleShuffle,
+                                            child: Icon(
+                                              Icons.shuffle_rounded,
+                                              color: actionProvider.isShuffling
+                                                  ? Colors.white
+                                                  : const Color(0xFF6E7287),
+                                              size: 24,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   ),
                                 ),
 
@@ -392,33 +394,37 @@ class _PlayerScreenState extends State<PlayerScreen>
                                 // Bottom Player Controls
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 48),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(
-                                            Icons.skip_previous_outlined,
-                                            color: Colors.white),
-                                        iconSize: 36,
-                                        onPressed: provider.playPrevious,
-                                      ),
-                                      IconButton(
-                                        icon: Icon(
-                                          provider.isPlaying
-                                              ? Icons.pause
-                                              : Icons.play_arrow,
-                                          color: Colors.white,
-                                        ),
-                                        iconSize: 42,
-                                        onPressed: provider.togglePlay,
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.skip_next_outlined,
-                                            color: Colors.white),
-                                        iconSize: 36,
-                                        onPressed: provider.playNext,
-                                      ),
-                                    ],
+                                  child: Consumer<MusicProvider>(
+                                    builder: (context, controlProvider, _) {
+                                      return Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                                Icons.skip_previous_outlined,
+                                                color: Colors.white),
+                                            iconSize: 36,
+                                            onPressed: controlProvider.playPrevious,
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              controlProvider.isPlaying
+                                                  ? Icons.pause
+                                                  : Icons.play_arrow,
+                                              color: Colors.white,
+                                            ),
+                                            iconSize: 42,
+                                            onPressed: controlProvider.togglePlay,
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.skip_next_outlined,
+                                                color: Colors.white),
+                                            iconSize: 36,
+                                            onPressed: controlProvider.playNext,
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   ),
                                 ),
 
@@ -435,8 +441,6 @@ class _PlayerScreenState extends State<PlayerScreen>
           ),
         ),
         );
-      },
-    );
   }
 
   void _showQueueModal(BuildContext context, MusicProvider provider) {
@@ -672,65 +676,62 @@ class _AudioVisualizerAuraState extends State<AudioVisualizerAura>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MusicProvider>(
-      builder: (context, provider, _) {
-        return AnimatedBuilder(
-          animation: _rotationController,
-          builder: (context, _) {
-            final v = _rotationController.value;
-            const tp = 2 * pi;
-            return SizedBox(
-              width: widget.artSize,
-              height: widget.artSize,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 600),
-                opacity: provider.isPlaying ? 1.0 : 0.0,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Blob 1 (Graves): Always circular, scales strongly with bass
-                    _buildBlob(
-                      color: _c1.withValues(alpha: 0.90),
-                      scale: _ampBass,
-                      rotation: v * tp * 0.5,
-                      radius: BorderRadius.circular(widget.artSize),
-                    ),
-                    // Blob 2 (Medios): Starts circular, stretches/morphs with mids
-                    Builder(builder: (context) {
-                      final defMid = (_ampMid - 0.85) * 1.5; // Deformation factor (base 0.85)
-                      return _buildBlob(
-                        color: _c2.withValues(alpha: 0.80),
-                        scale: _ampMid,
-                        rotation: -(v * tp),
-                        radius: BorderRadius.only(
-                          topLeft:     Radius.circular(widget.artSize * (0.5 - defMid * sin(v * tp * 2.0).abs()).clamp(0.15, 0.5)),
-                          topRight:    Radius.circular(widget.artSize * (0.5 - defMid * cos(v * tp * 2.0).abs()).clamp(0.15, 0.5)),
-                          bottomLeft:  Radius.circular(widget.artSize * (0.5 - defMid * cos(v * tp * 2.0 + pi / 4).abs()).clamp(0.15, 0.5)),
-                          bottomRight: Radius.circular(widget.artSize * (0.5 - defMid * sin(v * tp * 2.0 + pi / 4).abs()).clamp(0.15, 0.5)),
-                        ),
-                      );
-                    }),
-                    // Blob 3 (Agudos): Starts circular, becomes highly spiky and scales with treble
-                    Builder(builder: (context) {
-                      final defTreble = (_ampTreble - 0.85) * 2.5; // Sharp deformation factor (base 0.85)
-                      return _buildBlob(
-                        color: _c3.withValues(alpha: 0.80),
-                        scale: _ampTreble,
-                        rotation: v * tp * 1.8,
-                        radius: BorderRadius.only(
-                          topLeft:     Radius.circular(widget.artSize * (0.5 - defTreble * sin(v * tp * 3.0).abs()).clamp(0.12, 0.5)),
-                          topRight:    Radius.circular(widget.artSize * (0.5 - defTreble * cos(v * tp * 3.0).abs()).clamp(0.12, 0.5)),
-                          bottomLeft:  Radius.circular(widget.artSize * (0.5 - defTreble * cos(v * tp * 3.0 + pi / 4).abs()).clamp(0.12, 0.5)),
-                          bottomRight: Radius.circular(widget.artSize * (0.5 - defTreble * sin(v * tp * 3.0 + pi / 4).abs()).clamp(0.12, 0.5)),
-                        ),
-                      );
-                    }),
-                  ],
+    final isPlaying = context.select<MusicProvider, bool>((p) => p.isPlaying);
+    return AnimatedBuilder(
+      animation: _rotationController,
+      builder: (context, _) {
+        final v = _rotationController.value;
+        const tp = 2 * pi;
+        return SizedBox(
+          width: widget.artSize,
+          height: widget.artSize,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 600),
+            opacity: isPlaying ? 1.0 : 0.0,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                // Blob 1 (Graves): Always circular, scales strongly with bass
+                _buildBlob(
+                  color: _c1.withValues(alpha: 0.90),
+                  scale: _ampBass,
+                  rotation: v * tp * 0.5,
+                  radius: BorderRadius.circular(widget.artSize),
                 ),
-              ),
-            );
-          },
+                // Blob 2 (Medios): Starts circular, stretches/morphs with mids
+                Builder(builder: (context) {
+                  final defMid = (_ampMid - 0.85) * 1.5; // Deformation factor (base 0.85)
+                  return _buildBlob(
+                    color: _c2.withValues(alpha: 0.80),
+                    scale: _ampMid,
+                    rotation: -(v * tp),
+                    radius: BorderRadius.only(
+                      topLeft:     Radius.circular(widget.artSize * (0.5 - defMid * sin(v * tp * 2.0).abs()).clamp(0.15, 0.5)),
+                      topRight:    Radius.circular(widget.artSize * (0.5 - defMid * cos(v * tp * 2.0).abs()).clamp(0.15, 0.5)),
+                      bottomLeft:  Radius.circular(widget.artSize * (0.5 - defMid * cos(v * tp * 2.0 + pi / 4).abs()).clamp(0.15, 0.5)),
+                      bottomRight: Radius.circular(widget.artSize * (0.5 - defMid * sin(v * tp * 2.0 + pi / 4).abs()).clamp(0.15, 0.5)),
+                    ),
+                  );
+                }),
+                // Blob 3 (Agudos): Starts circular, becomes highly spiky and scales with treble
+                Builder(builder: (context) {
+                  final defTreble = (_ampTreble - 0.85) * 2.5; // Sharp deformation factor (base 0.85)
+                  return _buildBlob(
+                    color: _c3.withValues(alpha: 0.80),
+                    scale: _ampTreble,
+                    rotation: v * tp * 1.8,
+                    radius: BorderRadius.only(
+                      topLeft:     Radius.circular(widget.artSize * (0.5 - defTreble * sin(v * tp * 3.0).abs()).clamp(0.12, 0.5)),
+                      topRight:    Radius.circular(widget.artSize * (0.5 - defTreble * cos(v * tp * 3.0).abs()).clamp(0.12, 0.5)),
+                      bottomLeft:  Radius.circular(widget.artSize * (0.5 - defTreble * cos(v * tp * 3.0 + pi / 4).abs()).clamp(0.12, 0.5)),
+                      bottomRight: Radius.circular(widget.artSize * (0.5 - defTreble * sin(v * tp * 3.0 + pi / 4).abs()).clamp(0.12, 0.5)),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
         );
       },
     );

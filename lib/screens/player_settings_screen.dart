@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'ignored_folders_screen.dart';
 
 class PlayerSettingsScreen extends StatefulWidget {
   const PlayerSettingsScreen({super.key});
@@ -45,6 +46,37 @@ class _PlayerSettingsScreenState extends State<PlayerSettingsScreen> {
             value: _pauseOnDisconnect,
             onChanged: (val) => setState(() => _pauseOnDisconnect = val),
             colors: colors,
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 8),
+            child: Text(
+              'GESTIÓN DE BIBLIOTECA',
+              style: TextStyle(
+                color: colors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Carpetas de Audio',
+              style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Oculta audios de WhatsApp, tonos u otras carpetas',
+              style: TextStyle(color: colors.onSurfaceMuted, fontSize: 13),
+            ),
+            trailing: Icon(Icons.arrow_forward_ios_rounded, color: colors.onSurfaceMuted, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const IgnoredFoldersScreen()),
+              );
+            },
           ),
         ],
       ),

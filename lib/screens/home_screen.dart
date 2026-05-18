@@ -48,16 +48,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MusicProvider>(
-      builder: (context, provider, _) {
-        final List<AppSong> favoriteSongs = [];
-        final favPlaylist = provider.playlists.cast<AppPlaylist?>().firstWhere((p) => p?.id == 'favorites', orElse: () => null);
-        if (favPlaylist != null) {
-          favoriteSongs.addAll(favPlaylist.songIds
-              .map((id) => provider.songs.cast<AppSong?>().firstWhere((s) => s?.id == id, orElse: () => null))
-              .where((s) => s != null)
-              .cast<AppSong>());
-        }
+    // Seleccionar solo propiedades estructurales para evitar reconstruir toda la pantalla
+    // al pausar/reproducir o al procesar audio.
+    context.select<MusicProvider, (List<AppSong>, List<AppPlaylist>, bool)>(
+      (p) => (p.songs, p.playlists, p.isLoading)
+    );
+    final provider = context.read<MusicProvider>();
+
+    final List<AppSong> favoriteSongs = [];
+    final favPlaylist = provider.playlists.cast<AppPlaylist?>().firstWhere((p) => p?.id == 'favorites', orElse: () => null);
+    if (favPlaylist != null) {
+      favoriteSongs.addAll(favPlaylist.songIds
+          .map((id) => provider.songs.cast<AppSong?>().firstWhere((s) => s?.id == id, orElse: () => null))
+          .where((s) => s != null)
+          .cast<AppSong>());
+    }
 
         final screenHeight = MediaQuery.of(context).size.height;
 
@@ -65,8 +70,9 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: context.appColors.background,
               body: SafeArea(
                 bottom: false,
-                child: CustomScrollView(
-              slivers: [
+                child: RepaintBoundary(
+                  child: CustomScrollView(
+                    slivers: [
                 // Custom App Bar
                 SliverToBoxAdapter(
                   child: Padding(
@@ -391,16 +397,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SliverToBoxAdapter(child: SizedBox(height: 200)), // Extra space for miniplayer + tab
               ],
             ),
+                ),
           ),
         );
 
         return Stack(
           children: [
-            mainScaffold,
+            RepaintBoundary(child: mainScaffold),
             
-            if (provider.currentSong != null)
-              Miniplayer(
-                controller: _miniplayerController,
+            Consumer<MusicProvider>(
+              builder: (context, miniProvider, _) {
+                if (miniProvider.currentSong == null) return const SizedBox.shrink();
+                return Miniplayer(
+                  controller: _miniplayerController,
                 minHeight: 180, // 85 (player) + 95 (tab bar)
                 maxHeight: screenHeight,
                 backgroundColor: Colors.transparent, // Fixes black screen on drag
@@ -439,14 +448,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             alignment: Alignment.topCenter,
                             child: SizedBox(
                               height: 180,
-                              child: _buildMiniPlayerRow(provider, percentage),
+                              child: _buildMiniPlayerRow(miniProvider, percentage),
                             ),
                           ),
                         ),
                     ],
                   );
                 },
-              ),
+              );
+            }),
 
             // Tab Bar at the bottom (rendered ON TOP of the miniplayer background)
             Positioned(
@@ -474,8 +484,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         );
-      },
-    );
   }
 
   Widget _buildMiniPlayerRow(MusicProvider provider, double percentage) {

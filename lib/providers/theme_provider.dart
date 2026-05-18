@@ -45,6 +45,9 @@ class ThemeProvider extends ChangeNotifier {
   bool _isDarkMode = true;
   bool _dynamicColors = false;
   bool _animationsEnabled = true;
+  bool _showBottomNavLabels = true;
+  double _artworkBorderRadius = 12.0;
+  bool _enableGlassmorphism = true;
   ColorPaletteType _paletteType = ColorPaletteType.solid;
   int _selectedPaletteIndex = 0;
 
@@ -174,6 +177,9 @@ class ThemeProvider extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   bool get dynamicColors => _dynamicColors;
   bool get animationsEnabled => _animationsEnabled;
+  bool get showBottomNavLabels => _showBottomNavLabels;
+  double get artworkBorderRadius => _artworkBorderRadius;
+  bool get enableGlassmorphism => _enableGlassmorphism;
   ColorPaletteType get paletteType => _paletteType;
   int get selectedPaletteIndex => _selectedPaletteIndex;
 
@@ -194,6 +200,9 @@ class ThemeProvider extends ChangeNotifier {
     _isDarkMode = _prefs!.getBool('isDarkMode') ?? true;
     _dynamicColors = _prefs!.getBool('dynamicColors') ?? false;
     _animationsEnabled = _prefs!.getBool('animationsEnabled') ?? true;
+    _showBottomNavLabels = _prefs!.getBool('showBottomNavLabels') ?? true;
+    _artworkBorderRadius = _prefs!.getDouble('artworkBorderRadius') ?? 12.0;
+    _enableGlassmorphism = _prefs!.getBool('enableGlassmorphism') ?? true;
     
     int pType = _prefs!.getInt('paletteType') ?? 0;
     if (pType >= 0 && pType < ColorPaletteType.values.length) {
@@ -220,6 +229,24 @@ class ThemeProvider extends ChangeNotifier {
   void toggleAnimations(bool val) {
     _animationsEnabled = val;
     _prefs?.setBool('animationsEnabled', val);
+    notifyListeners();
+  }
+
+  void toggleBottomNavLabels(bool val) {
+    _showBottomNavLabels = val;
+    _prefs?.setBool('showBottomNavLabels', val);
+    notifyListeners();
+  }
+
+  void setArtworkBorderRadius(double val) {
+    _artworkBorderRadius = val;
+    _prefs?.setDouble('artworkBorderRadius', val);
+    notifyListeners();
+  }
+
+  void toggleGlassmorphism(bool val) {
+    _enableGlassmorphism = val;
+    _prefs?.setBool('enableGlassmorphism', val);
     notifyListeners();
   }
 

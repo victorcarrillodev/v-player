@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/song_model.dart';
@@ -129,22 +130,26 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(
-          gradient: context.appColors.primaryGradient,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        color: Colors.transparent, // To make the whole area clickable
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                gradient: context.appColors.primaryGradient,
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(8),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
-                  fontSize: 12,
+                  fontSize: 13,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -894,11 +899,15 @@ class VMusicTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final themeProvider = context.themeProvider;
+    final showLabels = themeProvider.showBottomNavLabels;
+    final useGlass = themeProvider.enableGlassmorphism;
+    
+    Widget content = Container(
       height: 105,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F111A),
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24.0), topRight: Radius.circular(24.0))
+      decoration: BoxDecoration(
+        color: useGlass ? Colors.black.withValues(alpha: 0.5) : const Color(0xFF0F111A),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24.0), topRight: Radius.circular(24.0))
       ),
       padding: const EdgeInsets.only(bottom: 20),
       child: Row(
@@ -906,37 +915,48 @@ class VMusicTabBar extends StatelessWidget {
         children: [
           Expanded(child: _TabItem(
             icon: Icons.person_outline_rounded,
-            label: 'Para tí',
+            label: showLabels ? 'Para tí' : null,
             isSelected: selectedIndex == 0,
             onTap: () => onTap(0),
           )),
           Expanded(child: _TabItem(
             icon: Icons.music_note_rounded,
-            label: 'Música',
+            label: showLabels ? 'Música' : null,
             isSelected: selectedIndex == 1,
             onTap: () => onTap(1),
           )),
           Expanded(child: _TabItem(
             icon: Icons.album_outlined,
-            label: 'Álbumes',
+            label: showLabels ? 'Álbumes' : null,
             isSelected: selectedIndex == 2,
             onTap: () => onTap(2),
           )),
           Expanded(child: _TabItem(
             icon: Icons.person_pin_rounded,
-            label: 'Artistas',
+            label: showLabels ? 'Artistas' : null,
             isSelected: selectedIndex == 3,
             onTap: () => onTap(3),
           )),
           Expanded(child: _TabItem(
             icon: Icons.playlist_play_rounded,
-            label: 'Playlists',
+            label: showLabels ? 'Playlists' : null,
             isSelected: selectedIndex == 4,
             onTap: () => onTap(4),
           )),
         ],
       ),
     );
+
+    if (useGlass) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24.0), topRight: Radius.circular(24.0)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 }
 

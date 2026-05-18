@@ -38,9 +38,10 @@ class ArtworkWidget extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, Uint8List? data, ConnectionState? state) {
     final hasArt = data != null && data.isNotEmpty;
+    final customRadius = borderRadius == 0 ? 0.0 : context.themeProvider.artworkBorderRadius;
 
     final inner = ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(customRadius),
       child: hasArt
           ? Image.memory(
               data,
@@ -50,7 +51,7 @@ class ArtworkWidget extends StatelessWidget {
               gaplessPlayback: true,
               cacheWidth: (size * 2).toInt(),
             )
-          : _buildPlaceholder(),
+          : _buildPlaceholder(customRadius),
     );
 
     if (showShadow) {
@@ -58,7 +59,7 @@ class ArtworkWidget extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(borderRadius),
+          borderRadius: BorderRadius.circular(customRadius),
           boxShadow: [
             BoxShadow(
               color: context.appColors.primary.withValues(alpha: 0.3),
@@ -74,12 +75,12 @@ class ArtworkWidget extends StatelessWidget {
     return SizedBox(width: size, height: size, child: inner);
   }
 
-  Widget _buildPlaceholder() {
+  Widget _buildPlaceholder(double customRadius) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(customRadius),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

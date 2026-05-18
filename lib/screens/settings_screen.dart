@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import 'appearance_settings_screen.dart';
 import 'player_settings_screen.dart';
 import 'equalizer_screen.dart';
+import 'customize_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -81,7 +82,14 @@ class SettingsScreen extends StatelessWidget {
                   color: Colors.amberAccent,
                   title: 'Personalizar',
                   subtitle: 'Ajusta la interfaz de la aplicación',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CustomizeSettingsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildSettingsTile(
                   icon: Icons.image_rounded,
